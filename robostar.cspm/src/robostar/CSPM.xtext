@@ -1,0 +1,499 @@
+/********************************************************************************
+ * Copyright (c) 2014 University of York and others
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0.
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ *
+ * Contributors:
+ *   Pedro Ribeiro - initial definition
+ ********************************************************************************/
+
+grammar robostar.CSPM with org.eclipse.xtext.common.Terminals
+
+generate cspm "http://robostar.cs.york.ac.uk/CSPM"
+
+CSPM:
+	{CSPM}
+	(definitions+=Definition)*
+;
+
+/* Terminals */
+terminal CHAR: "'" ('a'..'z'|'A'..'Z'|'_') "'";
+@Override 
+terminal WS: (' '|'\t'|'\r'|'\n')+;
+@Override 
+terminal ML_COMMENT	: '{-' -> '-}';
+@Override 
+terminal SL_COMMENT : '--' !('\n'|'\r')* ('\r'? '\n')?;
+@Override 
+terminal ID  		: ('a'..'z'|'A'..'Z') ('a'..'z'|'A'..'Z'|'_'|'0'..'9')* ("'")*;
+@Override
+terminal STRING:	'"' ( '\\' . /* 'b'|'t'|'n'|'f'|'r'|'u'|'"'|"'"|'\\' */ | !('\\'|'"') )* '"';
+
+Definition: //A CSP Program is made of a number of definitions.
+		Include 
+	|	Assertion	
+	|	ChannelList
+	| 	DataType
+	|	SubType
+	|	NameType
+	| 	PrintStatement
+	|	External
+	|	Transparent
+	|	Module
+	|	Function
+	| 	TimedSection
+
+;
+
+Include:
+	'include' file=STRING
+;
+
+Assertion:
+	'assert' (
+		RefinementAssertion |
+		DeadlockAssertion |
+		DivergenceAssertion |
+		DeterminismAssertion |
+		HasTraceAssertion
+	)
+;
+
+RefinementAssertion:
+	negated='not'? spec=Expression '[=' model=SemanticModel implementation=Expression //check=Check
+;
+
+DeadlockAssertion:
+	negated='not'? proc=Expression ':' '[' 'deadlock' 'free' ('[' model=SemanticModel ']')? ']'
+;
+
+DivergenceAssertion:
+	negated='not'? proc=Expression ':' '[' 'divergence' 'free' ('[' model=SemanticModel ']')? ']'
+;
+
+DeterminismAssertion:
+	negated='not'? proc=Expression ':' '[' 'deterministic' ('[' model=SemanticModel ']')? ']'
+;
+
+HasTraceAssertion:
+	negated='not'? proc=Expression ':' '[' 'has' 'trace' ']:' trace=Expression
+;
+
+enum SemanticModel:
+	TRACES = 'T' |
+	FAILURES = 'F' |
+	FAILURESDIVERGENCES = 'FD'
+;
+
+TimedSection:
+	{TimedSection} 'Timed' '(' expr=Expression ')' '{' (definitions+=Definition)* '}'
+;
+
+ChannelList:
+	'channel' channels+=Channel (',' channels+=Channel)* (':' type=Expression)? 
+;
+
+TypeConstructor:
+	Channel | DataType
+;
+
+Channel returns NameDecl:
+	name=ID
+;
+
+DataType:
+	'datatype' name=ID '=' constructors+=Constructor ('|' constructors+=Constructor)*
+;
+
+SubType:
+	'subtype' name=ID '=' constructors+=Constructor ('|' constructors+=Constructor)*
+;
+
+NameType:
+	'nametype' name=ID '=' type=Expression
+;
+
+Constructor returns NameDecl:
+	name=ID ('.' type=Expression)?
+;
+
+External:
+	'external' externals+=ID (',' externals+=ID)*
+;
+
+Transparent:
+	'transparent' transparents+=ID (',' transparents+=ID)*
+;
+
+Module:
+	{Module} 'module' 
+	(definitions+=Definition)*
+	'exports'
+	(definitions+=Definition)*
+	'endmodule'
+;
+
+PrintStatement:
+	'print' expr=Expression
+;
+
+// This can be either a function or a constant. If it's a function,
+// then can optionally use pattern matching.
+Function returns NameDecl:
+	name=ID ('(' args+=Pattern (',' args+=Pattern)* ')')? '=' any=Expression
+;
+
+/* Patterns */
+WildCardPattern:
+	{WildCardPattern} '_'
+;
+
+VariablePattern returns NameDecl:
+	name=ID
+;
+
+BasicPattern returns Pattern:
+	VariablePattern | 
+	WildCardPattern |
+	ListPattern |
+	LiteralPattern |
+	ParenthesesPattern |
+	SetPattern |
+	TuplePattern
+;
+
+// left-associative, binds tighter than Concat.
+ConcatPattern returns Pattern:
+	BasicPattern ({ConcatPattern.left=current} '^' right=BasicPattern)*
+;
+
+// right-associative, binds less tighter than Concat.
+Pattern returns Pattern:
+	ConcatPattern ({DotPattern.left=current} '.' right=ConcatPattern)?
+;
+
+ListPattern returns Pattern:
+	'<' patterns+=Pattern (',' patterns+=Pattern)* '>'
+;
+
+LiteralPattern returns Pattern:
+	{IntPattern} value=INT |
+	{StringPattern} value=STRING |
+	{CharPattern} value=CHAR
+;
+
+ParenthesesPattern returns Pattern:
+	'(' pattern=Pattern ')'
+;
+
+SetPattern returns Pattern:
+	{Set} '{' (pattern=Pattern)? '}'
+;
+
+TuplePattern returns Pattern:
+	'(' patterns+=Pattern (',' patterns+=Pattern)* ')'
+;
+
+// Expressions
+
+
+
+//Process: Exception | GeneralisedParallel ;
+
+
+
+//ParenthesesRename returns Expression:
+//	('(' exp=ParenthesesRename ')')
+//;
+
+ProjectExp returns Expression:
+	BasicExpression (
+		{ProjectExp.left=current} '|\\' right=BasicExpression
+	)*
+;
+
+RenameExp returns Expression:
+	ProjectExp ({RenameExp.left=current} '[[' pairs+=RenamingPair (',' pairs+=RenamingPair)* ('|' stmts+=Statement (',' stmts+=Statement)*)? ']]')?
+;
+
+ConcatExp returns Expression:
+	RenameExp (
+		{ConcatExp.left=current} '^' right=RenameExp
+	)*
+;
+
+ListLengthExp returns Expression:
+	ConcatExp (
+		{ListLengthExp.left=current} '#' right=ConcatExp
+	)*
+;
+
+MultDivMod returns Expression:
+	ListLengthExp (
+		{MultExp.left=current} '*' right=ListLengthExp |
+		{DivExp.left=current} '/' right=ListLengthExp |
+		{ModExp.left=current} '%' right=ListLengthExp
+	)*
+;
+
+PlusMinus returns Expression:
+	MultDivMod (
+		{PlusExp.left=current} '+' right=MultDivMod |
+		{MinusExp.left=current} '-' right=MultDivMod
+	)*
+;
+
+//EqualityComparison returns Expression:
+//	PlusMinus 
+//		(
+//			{EqualsExp.left=current} '==' right=PlusMinus |
+//			{NotEqualsExp.left=current} '!=' right=PlusMinus
+//		)?
+//;
+
+ComparisonExp returns Expression:
+	PlusMinus 
+		(	{LessThanExp.left=current} '<' right=PlusMinus |
+			{LessThanOrEqualExp.left=current} '<=' right=PlusMinus |
+			{GreaterThanExp.left=current} '>' right=PlusMinus |
+			{GreaterThanOrEqualExp.left=current} '>=' right=PlusMinus |
+			{EqualsExp.left=current} '==' right=PlusMinus |
+			{NotEqualsExp.left=current} '!=' right=PlusMinus
+		)?
+;
+
+//ComparisonExp returns Expression:
+//	Comparison | EqualityComparison
+//;
+
+NotExp returns Expression:
+	ComparisonExp ({NotExp.left=current} 'not' right=ComparisonExp)*
+;
+
+AndExp returns Expression:
+	NotExp ({AndExp.left=current} 'and' right=NotExp)*
+;
+
+OrExp returns Expression:
+	AndExp ({OrExp.left=current} 'or' right=AndExp)*
+;
+
+ColonExp returns Expression:
+	OrExp ({ColonExp.left=current} ':' right=OrExp)?
+;
+
+DotExp returns Expression:
+	ColonExp ({DotExp.left=current} '.' right=DotExp)?
+;
+
+// ?e?x.y:{0.1} is possible
+Decoration returns Expression:
+	DotExp 
+		({InputExp.left=current} '?' right=Pattern (':' expr=Expression)? | 
+		 {OutputExp.left=current} '!' right=DotExp | 
+		 {NondeterministicInput.left=current} '$' right=Pattern (':' expr=Expression)?
+		)*
+;
+
+//Prefix returns Expression:
+//	Decoration ({Prefix.left=current} "->" right=Prefix)?
+//;
+//
+//GuardedExpression returns Expression:
+//	Decoration ({GuardedExpression.left=current} '&' right=GuardedExpression)?
+//;
+
+GPrefix returns Expression:
+	Decoration (
+		{Prefix.left=current} '->' right=GPrefix |
+		{GuardedExpression.left=current} '&' right=GPrefix
+	)?
+//	GuardedExpression |
+//	Prefix
+;
+
+SequentialComposition returns Expression:
+	GPrefix ({SequentialComposition.left=current} ';' right=GPrefix)*
+;
+
+SlidingChoice returns Expression:
+	SequentialComposition ({SlidingChoice.left=current} '[>' right=SequentialComposition)*
+;
+
+Interrupt returns Expression:
+	SlidingChoice (
+		({Interrupt.left=current} '/\\' right=SlidingChoice) |
+		({SynchronisingInterrupt.left=current} '/+' cs=Expression '+\\' right=SlidingChoice)
+	)*
+;
+
+ExternalChoice returns Expression:
+	Interrupt (
+		({ExternalChoice.left=current} '[]' right=Interrupt) | 
+		({SynchronisingExternalChoice.left=current} '[+' cs=Expression '+]' right=Interrupt)
+	)* 
+;
+
+InternalChoice returns Expression:
+	ExternalChoice ({InternalChoice.left=current} '|~|' right=ExternalChoice)*
+;
+
+EGA returns Expression:
+	InternalChoice (
+		'[|' 
+		(
+		 {Exception.left=current} cset=Expression  '|>' right=InternalChoice |
+		 {GeneralisedParallel.left=current} cset=Expression  '|]' right=InternalChoice //=Expression
+		)
+	|
+//	 {GeneralisedParallel.left=current} '[|' cset=Expression '|]' right=Expression //|
+	 {AlphabetisedParallel.left=current} '[' lset=Expression '||' rset=Expression ']' right=InternalChoice |
+	 {LinkedParallel.left=current} '[' links+=Link ('|' stmts+=Statement (',' stmts+=Statement)*)? ']' right=InternalChoice
+	 )?
+;
+
+Link:
+	left=Expression '<->' right=Expression
+;
+
+//Pop returns Expression:
+//	'dld'
+//;
+//
+//CSet returns Expression:
+//	Expression
+//;
+//
+//ExceptionOrParallel returns Expression:
+//	cset=Expression ({Exception.cset=current} '|>' | {GeneralisedPrallel.cset=current} '|]')
+//;
+
+//Exception returns Expression:
+//	'[|' cset=Expression '|>' right=Expression
+//;
+
+Interleave returns Expression:
+	EGA ({Interleave.left=current} '|||' right=EGA)*
+;
+
+Hide returns Expression:
+	Interleave ({Hide.left=current} '\\' right=Interleave)*
+;
+
+DoublePatternExp returns Expression:
+	Hide ({DoublePatternExp.left=current} '@@' right=Hide)?
+;
+
+BasicExpression returns Expression:
+//	LetExp |
+//	IfThenElse |
+//	ReplicatedAlphabetisedParallel |
+	CoreProcess |
+	{ParExp} '(' expr=Expression ')' |
+	PRef |
+	//VarDecl |
+	StatementExpression |
+	{IntegerExp} value=INT |
+	{LambdaExp} '\\' patterns+=Pattern (',' patterns+=Pattern)* '@' expr=Expression |
+	{StringExp} value=STRING |
+	{CharExp} value=CHAR |
+	{MapExp} '(|' mapping+=Mapping (',' mapping+=Mapping)* '|)' |
+	{TrueExp} ('True'|'true') |
+	{FalseExp} ('False'|'false') |
+	{UnaryNotExp} 'not' expr=Expression |
+	{Events} 'Events' |
+	{Char} 'Char' |
+	{Int} 'Int' |
+	{Proc} 'Proc' 
+;
+
+CoreProcess:
+	{Stop} 'STOP' |
+	{Skip} 'SKIP' |
+	{Chaos} 'CHAOS' '(' expr=Expression ')' |
+	{Run} 'RUN' '(' expr=Expression ')' |
+	{Wait} 'WAIT' '(' expr=Expression ')'
+;
+
+RenamingPair:
+	from=Expression '<-' to=Expression
+;
+
+StatementExpression returns Expression:
+	ListExp | RangedListExp | SetExp | RangedSetExp | EnumeratedSetExp
+;
+
+ListExp returns StatementExpression:
+	{ListExp} '<' (exprs+=Expression (',' exprs+=Expression)*)? ('|' stmts+=Statement (',' stmts+=Statement)*)? '>'
+;
+
+RangedListExp returns StatementExpression:
+	{RangedListExp} '<' left=Expression '..' right=Expression ('|' stmts+=Statement (',' stmts+=Statement)*)? '>'
+;
+
+SetExp returns StatementExpression:
+	{SetExp} '{' (exprs+=Expression (',' exprs+=Expression)*)? ('|' stmts+=Statement (',' stmts+=Statement)*)? '}'
+;
+
+RangedSetExp returns StatementExpression:
+	{RangedSetExp} '{' left=Expression '..' right=Expression ('|' stmts+=Statement (',' stmts+=Statement)*)? '}'
+;
+
+EnumeratedSetExp returns StatementExpression:
+	{EnumeratedSetExp} '{|' (exprs+=Expression (',' exprs+=Expression)*)? ('|' stmts+=Statement (',' stmts+=Statement)*)? '|}'
+;
+
+Mapping:
+	left=Expression '=>' right=Expression
+;
+
+PRef:
+	{PRef} ref=[NameDecl] ('(' args+=Expression (',' args+=Expression)* ')')?
+;
+
+LetExp returns Expression:
+	{LetExp} 'let'
+		(definitions+=Definition)*
+	'within'
+		expr=Expression
+;
+
+IfThenElse returns Expression:
+	'if' condition=Expression 'then' true=Expression 'else' false=Expression
+;
+
+Expression:
+	ReplicatedOps | DoublePatternExp | LetExp | IfThenElse
+;
+
+// Replicated operators
+
+ReplicatedOps:
+	{ReplicatedAlphabetisedParallel} '||' stmts+=Statement (',' stmts+=Statement)* '@' '[' ']' expr=Expression |
+	{ReplicatedExternalChoice} '[]' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
+	{ReplicatedGeneralisedPrallel} '[|' '|]' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
+	{ReplicatedInterleave} '|||' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
+	{ReplicatedInternalChoice} '|~|' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
+	{ReplicatedLinkedParallel} '[' links+=Link (',' links+=Link)* ('|' lstmts+=Statement (',' lstmts+=Statement)*)? ']' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
+	{ReplicatedSequentialComposition} ';' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
+	{ReplicatedSynchronisingParallel} '[+' cset=Expression '+]' '@' expr=Expression
+;
+
+Statement:
+	GeneratorStatement |
+	SetGeneratorStatement |
+	{PredicateStatement} expr=Expression
+;
+
+GeneratorStatement:
+	pattern=Pattern '<-' expr=Expression
+;
+
+// This option is supported by FDR, but the syntax is unclear in the manual.
+SetGeneratorStatement:
+	pattern=Pattern ':' expr=Expression
+;
