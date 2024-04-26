@@ -17,6 +17,7 @@ import java.util.HashSet
 import robostar.cspm.NameDecl
 import java.util.Set
 import robostar.cspm.Prefix
+import robostar.cspm.StatementExpression
 
 /**
  * This class contains custom scoping description.
@@ -31,8 +32,9 @@ class CSPMScopeProvider extends AbstractCSPMScopeProvider {
 			val result = new ArrayList
 			// We take the global scope
 			val scope = delegateGetScope(context,reference)
-			return scope
-//			val oscope = Scopes.scopeFor(NameDecls(context), scope)
+			
+			val oscope = Scopes.scopeFor(NameDecls(context), scope)
+			return oscope
 //			
 //			// We create a reflexive scope based on the reference, so that a PRef may refer to itself!
 //			var lscope = new SimpleReflexiveScope(oscope, context)
@@ -50,15 +52,25 @@ class CSPMScopeProvider extends AbstractCSPMScopeProvider {
 	}
 	
 	def dispatch Set<NameDecl> NameDecls(PRef pr) {
-		NameDecls(pr.eContainer)
+		if (pr.eContainer !== null)
+			NameDecls(pr.eContainer)
+		else
+			return new HashSet<NameDecl>
+	}
+	
+	def dispatch Set<NameDecl> NameDecls(StatementExpression sexpr) {
+		return sexpr.stmts.map[s|s.eAllContents.filter(NameDecl).toSet].flatten.toSet
 	}
 	
 	def dispatch Set<NameDecl> NameDecls(Prefix gp) {
-		return gp.left.eAllContents.filter(NameDecl).toSet
+		if (gp.left !== null)
+			return gp.left.eAllContents.filter(NameDecl).toSet
+		else
+			return new HashSet<NameDecl>
 	}
 	
 	def dispatch Set<NameDecl> NameDecls(EObject e) {
-		if (e !== null) {
+		if (e !== null && e.eContainer !== null) {
 			return NameDecls(e.eContainer)
 		} else {
 			return new HashSet<NameDecl>()

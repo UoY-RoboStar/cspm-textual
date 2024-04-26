@@ -3,9 +3,25 @@
  */
 package robostar
 
+import org.eclipse.xtext.naming.IQualifiedNameConverter
+import org.eclipse.xtext.validation.INamesAreUniqueValidationHelper
+import robostar.validation.CSPMNamesAreUniqueValidationHelper
 
 /**
  * Use this class to register components to be used at runtime / without the Equinox extension registry.
  */
 class CSPMRuntimeModule extends AbstractCSPMRuntimeModule {
+	
+	override bindIQualifiedNameProvider() {
+		return CSPMQualifiedNameProvider
+	}
+	
+	def Class<? extends IQualifiedNameConverter> bindIQualifiedNameConverter() {
+		return CSPMQualifiedNameConverter
+	}
+	
+	def Class<? extends INamesAreUniqueValidationHelper> bindNamesAreUniqueValidationHelper() {
+		return CSPMNamesAreUniqueValidationHelper
+	}
+	
 }

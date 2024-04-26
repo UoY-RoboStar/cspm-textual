@@ -16,8 +16,11 @@ grammar robostar.CSPM with org.eclipse.xtext.common.Terminals
 generate cspm "http://robostar.cs.york.ac.uk/CSPM"
 
 CSPM:
-	{CSPM}
-	(definitions+=Definition)*
+	{CSPM} (definitions+=Definition)*
+;
+
+QualifiedName:
+	ID ('::' ID)*
 ;
 
 /* Terminals */
@@ -43,9 +46,10 @@ Definition: //A CSP Program is made of a number of definitions.
 	| 	PrintStatement
 	|	External
 	|	Transparent
-	|	Module
 	|	Function
 	| 	TimedSection
+	|	Module
+	|   ModuleInstance
 
 ;
 
@@ -97,28 +101,28 @@ ChannelList:
 	'channel' channels+=Channel (',' channels+=Channel)* (':' type=Expression)? 
 ;
 
-TypeConstructor:
-	Channel | DataType
-;
+//TypeConstructor:
+//	Channel | DataType
+//;
 
 Channel returns NameDecl:
-	name=ID
+	{Channel} name=ID
 ;
 
-DataType:
-	'datatype' name=ID '=' constructors+=Constructor ('|' constructors+=Constructor)*
+DataType returns NameDecl:
+	{DataType} 'datatype' name=ID '=' constructors+=Constructor ('|' constructors+=Constructor)*
 ;
 
-SubType:
-	'subtype' name=ID '=' constructors+=Constructor ('|' constructors+=Constructor)*
+SubType returns NameDecl:
+	{SubTyoe} 'subtype' name=ID '=' constructors+=Constructor ('|' constructors+=Constructor)*
 ;
 
-NameType:
-	'nametype' name=ID '=' type=Expression
+NameType returns NameDecl:
+	{NameType} 'nametype' name=ID '=' type=Expression
 ;
 
 Constructor returns NameDecl:
-	name=ID ('.' type=Expression)?
+	{Constructor} name=ID ('.' type=Expression)?
 ;
 
 External:
@@ -130,11 +134,15 @@ Transparent:
 ;
 
 Module:
-	{Module} 'module' 
+	{Module} 'module' name=ID ('(' params+=Pattern (',' params+=Pattern)* ')')?
 	(definitions+=Definition)*
 	'exports'
 	(definitions+=Definition)*
 	'endmodule'
+;
+
+ModuleInstance:
+	'instance' name=ID '=' ref=[Module|QualifiedName] ('(' args+=Expression (',' args+=Expression)* ')')?
 ;
 
 PrintStatement:
@@ -144,7 +152,7 @@ PrintStatement:
 // This can be either a function or a constant. If it's a function,
 // then can optionally use pattern matching.
 Function returns NameDecl:
-	name=ID ('(' args+=Pattern (',' args+=Pattern)* ')')? '=' any=Expression
+	{Function} name=ID ('(' args+=Pattern (',' args+=Pattern)* ')')? '=' any=Expression
 ;
 
 /* Patterns */
@@ -153,7 +161,7 @@ WildCardPattern:
 ;
 
 VariablePattern returns NameDecl:
-	name=ID
+	{VariablePattern} name=ID
 ;
 
 BasicPattern returns Pattern:
@@ -177,7 +185,7 @@ Pattern returns Pattern:
 ;
 
 ListPattern returns Pattern:
-	'<' patterns+=Pattern (',' patterns+=Pattern)* '>'
+	{ListPattern} '<' patterns+=Pattern (',' patterns+=Pattern)* '>'
 ;
 
 LiteralPattern returns Pattern:
@@ -187,7 +195,7 @@ LiteralPattern returns Pattern:
 ;
 
 ParenthesesPattern returns Pattern:
-	'(' pattern=Pattern ')'
+	{ParenthesesPattern} '(' pattern=Pattern ')'
 ;
 
 SetPattern returns Pattern:
@@ -195,7 +203,7 @@ SetPattern returns Pattern:
 ;
 
 TuplePattern returns Pattern:
-	'(' patterns+=Pattern (',' patterns+=Pattern)* ')'
+	{TuplePattern} '(' patterns+=Pattern (',' patterns+=Pattern)* ')'
 ;
 
 // Expressions
@@ -452,7 +460,7 @@ Mapping:
 ;
 
 PRef:
-	{PRef} ref=[NameDecl] ('(' args+=Expression (',' args+=Expression)* ')')?
+	{PRef} ref=[NameDecl|QualifiedName] ('(' args+=Expression (',' args+=Expression)* ')')?
 ;
 
 LetExp returns Expression:
