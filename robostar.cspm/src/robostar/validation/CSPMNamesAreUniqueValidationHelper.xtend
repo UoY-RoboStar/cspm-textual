@@ -36,7 +36,7 @@ class CSPMNamesAreUniqueValidationHelper extends NamesAreUniqueValidationHelper 
 					if (dcspm instanceof CSPM) {
 						if (ccspm instanceof CSPM) {
 							
-							val dobjIndex = dcspm.definitions.indexOf(cobj)
+							val dobjIndex = dcspm.definitions.indexOf(dobj)
 							val cobjIndex = ccspm.definitions.indexOf(cobj)
 							
 							val min = dobjIndex <= cobjIndex ? dobjIndex : cobjIndex
@@ -56,7 +56,7 @@ class CSPMNamesAreUniqueValidationHelper extends NamesAreUniqueValidationHelper 
 						}	
 					} else if (dcspm instanceof LetExp) {
 						if (ccspm instanceof LetExp) {
-							val dobjIndex = dcspm.definitions.indexOf(cobj)
+							val dobjIndex = dcspm.definitions.indexOf(dobj)
 							val cobjIndex = ccspm.definitions.indexOf(cobj)
 							
 							val min = dobjIndex <= cobjIndex ? dobjIndex : cobjIndex

@@ -185,7 +185,7 @@ Pattern returns Pattern:
 ;
 
 ListPattern returns Pattern:
-	{ListPattern} '<' patterns+=Pattern (',' patterns+=Pattern)* '>'
+	{ListPattern} '<' (patterns+=Pattern)? (',' patterns+=Pattern)* '>'
 ;
 
 LiteralPattern returns Pattern:
@@ -263,14 +263,17 @@ PlusMinus returns Expression:
 //		)?
 //;
 
-ComparisonExp returns Expression:
-	PlusMinus 
-		(	{LessThanExp.left=current} '<' right=PlusMinus |
-			{LessThanOrEqualExp.left=current} '<=' right=PlusMinus |
-			{GreaterThanExp.left=current} '>' right=PlusMinus |
+ComparisonExp2 returns Expression:
+	PlusMinus ({LessThanOrEqualExp.left=current} '<=' right=PlusMinus |
+			{LessThanExp.left=current} '<' right=PlusMinus |
 			{GreaterThanOrEqualExp.left=current} '>=' right=PlusMinus |
 			{EqualsExp.left=current} '==' right=PlusMinus |
-			{NotEqualsExp.left=current} '!=' right=PlusMinus
+			{NotEqualsExp.left=current} '!=' right=PlusMinus)?
+;
+
+ComparisonExp returns Expression:
+	ComparisonExp2 
+		(	{GreaterThanExp.left=current} '>' right=ComparisonExp2 
 		)?
 ;
 
@@ -401,7 +404,9 @@ BasicExpression returns Expression:
 //	IfThenElse |
 //	ReplicatedAlphabetisedParallel |
 	CoreProcess |
+	CoreFunction |
 	{ParExp} '(' expr=Expression ')' |
+	{TupleExp} '(' expr+=Expression ',' expr+=Expression (',' expr+=Expression)* ')' |
 	PRef |
 	//VarDecl |
 	StatementExpression |
@@ -427,16 +432,49 @@ CoreProcess:
 	{Wait} 'WAIT' '(' expr=Expression ')'
 ;
 
+CoreFunction:
+	{SetCard} 'card' '(' args+=Expression ')' |
+	{SetDiff} 'diff' '(' args+=Expression ','  args+=Expression ')' |
+	{SetEmpty} 'empty' '(' args+=Expression ')' |
+	{SetlInter} 'inter' '(' args+=Expression ',' args+=Expression ')' |
+	{SetbInter} 'Inter' '(' args+=Expression ')' |
+	{SetMember} 'member' '(' args+=Expression ',' args+=Expression ')' |
+	{LSeq} 'seq' '(' args+=Expression ')' |
+	{BSeq} 'Seq' '(' args+=Expression ')' |
+	{Set}  'Set' '(' args+=Expression ')' |
+	{SetLUnion} 'union' '(' args+=Expression ',' args+=Expression ')' |
+	{SetBUnion} 'Union' '(' args+=Expression ')' |
+	{SequenceConcat} 'concat' '(' args+=Expression ')' |
+	{SequenceElem} 'elem' '(' args+=Expression ',' args+=Expression ')' |
+	{SequenceHead} 'head' '(' args+=Expression ')' |
+	{SequenceLength} 'length' '(' args+=Expression ')' |
+	{SequenceNull} 'null' '(' args+=Expression ')' |
+	{SequenceSet} 'set' '(' args+=Expression ')' |
+	{SequenceTail} 'tail' '(' args+=Expression ')' |
+	{EmptyMap} 'emptyMap' '(' args+=Expression ')' |
+	{MapDelete} 'mapDelete' '(' args+=Expression ')' |
+	{MapFromList} 'mapFromList' '(' args+=Expression ')' |
+	{MapLookup} 'mapLookup' '(' args+=Expression ')' |
+	{MapMember} 'mapMember' '(' args+=Expression ')' |
+	{MapToList} 'mapToList' '(' args+=Expression ')' |
+	{MapUpdate} 'mapUpdated' '(' args+=Expression ')' |
+	{MapUpdateMultiple} 'mapUpdateMultiple' '(' args+=Expression ')' |
+	{Map} 'Map' '(' args+=Expression ',' args+=Expression ')'
+;
+
 RenamingPair:
 	from=Expression '<-' to=Expression
 ;
 
 StatementExpression returns Expression:
-	ListExp | RangedListExp | SetExp | RangedSetExp | EnumeratedSetExp
+	SetExp | RangedSetExp | ListExp | RangedListExp | EnumeratedSetExp
 ;
 
+// We have ComparisonExp2 rather than anything above, because otheriwse a string such as <2>1> would be accepted,
+// in which case should it could be a list <2> followed by an ill-formed string, or a list whose first element is an expression
+// comparison? We eliminate the second interpretation, which is what FDR does as well.
 ListExp returns StatementExpression:
-	{ListExp} '<' (exprs+=Expression (',' exprs+=Expression)*)? ('|' stmts+=Statement (',' stmts+=Statement)*)? '>'
+	{ListExp} '<' (exprs+=ComparisonExp2 (',' exprs+=ComparisonExp2)*)? ('|' stmts+=Statement (',' stmts+=Statement)*)? '>'
 ;
 
 RangedListExp returns StatementExpression:
@@ -475,7 +513,8 @@ IfThenElse returns Expression:
 ;
 
 Expression:
-	ReplicatedOps | DoublePatternExp | LetExp | IfThenElse
+	LetExp | IfThenElse | //RangedListExp | 
+	ReplicatedOps | DoublePatternExp
 ;
 
 // Replicated operators
