@@ -15,6 +15,9 @@ grammar robostar.CSPM with org.eclipse.xtext.common.Terminals
 
 generate cspm "http://robostar.cs.york.ac.uk/CSPM"
 
+/***************************************************************************************
+ * Top-level CSPM
+ ***************************************************************************************/
 CSPM:
 	{CSPM} (definitions+=Definition)*
 ;
@@ -23,7 +26,9 @@ QualifiedName:
 	ID ('::' ID)*
 ;
 
-/* Terminals */
+/***************************************************************************************
+ * Terminals
+ ***************************************************************************************/
 terminal CHAR: "'" ('a'..'z'|'A'..'Z'|'_') "'";
 @Override 
 terminal WS: (' '|'\t'|'\r'|'\n')+;
@@ -36,9 +41,12 @@ terminal ID  		: ('a'..'z'|'A'..'Z') ('a'..'z'|'A'..'Z'|'_'|'0'..'9')* ("'")*;
 @Override
 terminal STRING:	'"' ( '\\' . /* 'b'|'t'|'n'|'f'|'r'|'u'|'"'|"'"|'\\' */ | !('\\'|'"') )* '"';
 
-Definition: //A CSP Program is made of a number of definitions.
+/***************************************************************************************
+ * Definitions
+ ***************************************************************************************/
+Definition:
 		Include 
-	|	Assertion	
+	|	Assertion
 	|	ChannelList
 	| 	DataType
 	|	SubType
@@ -51,13 +59,26 @@ Definition: //A CSP Program is made of a number of definitions.
 	|	Module
 	|   ModuleInstance
 	| 	TypeAnnotation
+;
 
+/***************************************************************************************
+ * Imports and miscellaneous functions
+ ***************************************************************************************/
+External:
+	'external' externals+=externals (',' externals+=externals)*
+;
+
+Transparent:
+	'transparent' transparents+=transparents (',' transparents+=transparents)*
 ;
 
 Include:
 	'include' file=STRING
 ;
 
+/***************************************************************************************
+ * Assertions
+ ***************************************************************************************/
 Assertion:
 	'assert' (
 		RefinementAssertion |
@@ -94,17 +115,19 @@ enum SemanticModel:
 	FAILURESDIVERGENCES = 'FD'
 ;
 
+/***************************************************************************************
+ * Timed section
+ ***************************************************************************************/
 TimedSection:
 	{TimedSection} 'Timed' '(' expr=Expression ')' '{' (definitions+=Definition)* '}'
 ;
 
+/***************************************************************************************
+ * Type and channel declarations
+ ***************************************************************************************/
 ChannelList:
 	'channel' channels+=Channel (',' channels+=Channel)* (':' type=Expression)? 
 ;
-
-//TypeConstructor:
-//	Channel | DataType
-//;
 
 Channel returns NameDecl:
 	{Channel} name=ID
@@ -126,14 +149,9 @@ Constructor returns NameDecl:
 	{Constructor} name=ID ('.' type=Expression)?
 ;
 
-External:
-	'external' externals+=ID (',' externals+=ID)*
-;
-
-Transparent:
-	'transparent' transparents+=ID (',' transparents+=ID)*
-;
-
+/***************************************************************************************
+ * Modules
+ ***************************************************************************************/
 Module:
 	{Module} 'module' name=ID ('(' params+=Pattern (',' params+=Pattern)* ')')?
 	(definitions+=Definition)*
@@ -146,62 +164,31 @@ ModuleInstance:
 	'instance' name=ID '=' ref=[Module|QualifiedName] ('(' args+=Expression (',' args+=Expression)* ')')?
 ;
 
+/***************************************************************************************
+ * Statements
+ ***************************************************************************************/
 PrintStatement:
 	'print' expr=Expression
 ;
 
-TypeAnnotation:
-	{TypeAnnotation} ref=[Function] (',' refs+=[Function])* '::' (
-		constraints+=Constraint '=>' |
-		'(' constraints+=Constraint (',' constraints+=Constraint) ')' '=>'
-	)? type=TypeConstructor
-;
-
-Constraint:
-	typeConstraint=TypeConstraint type=TypeVariable
-;
-
-TypeConstructor returns TypeExpression:
-	TypeExpression (
-		  {DotType.left=current} '.' right=TypeConstructor
-		| {DotableType.left=current} '=>' right=TypeConstructor
-		| {ExtendableType.left=current} '=>*' right=TypeConstructor
-		| {FunctionType.left=current} '->' right=TypeConstructor
-	)*
-;
-
-TypeExpression returns TypeExpression:
-	   TypeVariable
-	 | {SetType} '{' type=TypeConstructor '}'
-	 | {MapType} '(|' key=TypeConstructor '=>' value=TypeConstructor '|)' 
-	 | {SequenceType} '<' type=TypeConstructor '>' 
-	 | {TupleType} '(' types+=TypeConstructor (',' types+=TypeConstructor)* ')'
-	 | {IntType} 'Int' 
-	 | {BoolType} 'Bool' 
-	 | {CharType} 'Char'
-	 | {EventType} 'Event' 
-	 | {ProcType} 'Proc'
-;
-
-TypeVariable returns TypeExpression:
-	{TypeVariable} name=ID
-;
-
-enum TypeConstraint:
-	EQ = 'Eq' |
-	COMPLETE = 'Complete' |
-	ORD = 'Ord' |
-	SET = 'Set' |
-	YIELDABLE = 'Yieldable'
-;
-
 // This can be either a function or a constant. If it's a function,
 // then can optionally use pattern matching.
+//
+// NOTE: Unlike FDR, we do not support a function declaration with no arguments,
+//		 that is, f() = e, is invalid here. While FDR does allow such a declaration,
+//		 it does not seem sensible to support it.
+//
+//		 FDR also allows empty pattern matching via multiple empty argument functions:
+//		 f() = e
+//		 f() = f
+//		 which adopt the upper definition f() = e.
 Function returns NameDecl:
 	{Function} name=ID ('(' args+=Pattern (',' args+=Pattern)* ')')? '=' any=Expression
 ;
 
-/* Patterns */
+/***************************************************************************************
+ * Patterns
+ ***************************************************************************************/
 WildCardPattern returns Pattern:
 	{WildCardPattern} '_'
 ;
@@ -252,18 +239,11 @@ TuplePattern returns Pattern:
 	{TuplePattern} '(' patterns+=Pattern (',' patterns+=Pattern)* ')'
 ;
 
-// Expressions
-
-
-
-//Process: Exception | GeneralisedParallel ;
-
-
-
-//ParenthesesRename returns Expression:
-//	('(' exp=ParenthesesRename ')')
-//;
-
+/***************************************************************************************
+ * Expressions
+ * 
+ * See https://cocotec.io/fdr/manual/cspm/syntax.html for precedence information.
+ ***************************************************************************************/ 
 ProjectExp returns Expression:
 	BasicExpression (
 		{ProjectExp.left=current} '|\\' right=BasicExpression
@@ -301,14 +281,6 @@ PlusMinus returns Expression:
 	)*
 ;
 
-//EqualityComparison returns Expression:
-//	PlusMinus 
-//		(
-//			{EqualsExp.left=current} '==' right=PlusMinus |
-//			{NotEqualsExp.left=current} '!=' right=PlusMinus
-//		)?
-//;
-
 ComparisonExp2 returns Expression:
 	PlusMinus ({LessThanOrEqualExp.left=current} '<=' right=PlusMinus |
 			{LessThanExp.left=current} '<' right=PlusMinus |
@@ -317,15 +289,13 @@ ComparisonExp2 returns Expression:
 			{NotEqualsExp.left=current} '!=' right=PlusMinus)?
 ;
 
+// The following separate rule is needed because > is also used to terminate
+// a list expression.
 ComparisonExp returns Expression:
 	ComparisonExp2 
 		(	{GreaterThanExp.left=current} '>' right=ComparisonExp2 
 		)?
 ;
-
-//ComparisonExp returns Expression:
-//	Comparison | EqualityComparison
-//;
 
 NotExp returns Expression:
 	ComparisonExp ({NotExp.left=current} 'not' right=ComparisonExp)*
@@ -356,21 +326,11 @@ Decoration returns Expression:
 		)*
 ;
 
-//Prefix returns Expression:
-//	Decoration ({Prefix.left=current} "->" right=Prefix)?
-//;
-//
-//GuardedExpression returns Expression:
-//	Decoration ({GuardedExpression.left=current} '&' right=GuardedExpression)?
-//;
-
 GPrefix returns Expression:
 	Decoration (
 		{Prefix.left=current} '->' right=GPrefix |
 		{GuardedExpression.left=current} '&' right=GPrefix
 	)?
-//	GuardedExpression |
-//	Prefix
 ;
 
 SequentialComposition returns Expression:
@@ -401,37 +361,17 @@ InternalChoice returns Expression:
 
 EGA returns Expression:
 	InternalChoice (
-		'[|' 
-		(
-		 {Exception.left=current} cset=Expression  '|>' right=InternalChoice |
-		 {GeneralisedParallel.left=current} cset=Expression  '|]' right=InternalChoice //=Expression
-		)
-	|
-//	 {GeneralisedParallel.left=current} '[|' cset=Expression '|]' right=Expression //|
-	 {AlphabetisedParallel.left=current} '[' lset=Expression '||' rset=Expression ']' right=InternalChoice |
-	 {LinkedParallel.left=current} '[' links+=Link ('|' stmts+=Statement (',' stmts+=Statement)*)? ']' right=InternalChoice
+		'[|' ( 		// Ambiguous, which implies backtracking for the parser.
+			 		{Exception.left=current} cset=Expression '|>' right=InternalChoice 
+			 	| 	{GeneralisedParallel.left=current} cset=Expression  '|]' right=InternalChoice )
+		|	{AlphabetisedParallel.left=current} '[' lset=Expression '||' rset=Expression ']' right=InternalChoice 
+		|	{LinkedParallel.left=current} '[' links+=Link ('|' stmts+=Statement (',' stmts+=Statement)*)? ']' right=InternalChoice
 	 )?
 ;
 
 Link:
 	left=Expression '<->' right=Expression
 ;
-
-//Pop returns Expression:
-//	'dld'
-//;
-//
-//CSet returns Expression:
-//	Expression
-//;
-//
-//ExceptionOrParallel returns Expression:
-//	cset=Expression ({Exception.cset=current} '|>' | {GeneralisedPrallel.cset=current} '|]')
-//;
-
-//Exception returns Expression:
-//	'[|' cset=Expression '|>' right=Expression
-//;
 
 Interleave returns Expression:
 	EGA ({Interleave.left=current} '|||' right=EGA)*
@@ -446,15 +386,11 @@ DoublePatternExp returns Expression:
 ;
 
 BasicExpression returns Expression:
-//	LetExp |
-//	IfThenElse |
-//	ReplicatedAlphabetisedParallel |
 	CoreProcess |
-	CoreFunction |
+	FunctionExp |
 	{ParExp} '(' expr=Expression ')' |
 	{TupleExp} '(' expr+=Expression ',' expr+=Expression (',' expr+=Expression)* ')' |
 	PRef |
-	//VarDecl |
 	StatementExpression |
 	{IntegerExp} value=INT |
 	{LambdaExp} '\\' patterns+=Pattern (',' patterns+=Pattern)* '@' expr=Expression |
@@ -473,39 +409,107 @@ BasicExpression returns Expression:
 CoreProcess:
 	{Stop} 'STOP' |
 	{Skip} 'SKIP' |
-	{Chaos} 'CHAOS' '(' expr=Expression ')' |
-	{Run} 'RUN' '(' expr=Expression ')' |
-	{Wait} 'WAIT' '(' expr=Expression ')'
+	{Chaos} 'CHAOS' SingleArgFunction |
+	{Run} 'RUN' SingleArgFunction |
+	{Wait} 'WAIT' SingleArgFunction
+;
+
+FunctionExp:
+	CoreFunction | CompressionFunction | RelationFunction | DotFunction
 ;
 
 CoreFunction:
-	{SetCard} 'card' '(' args+=Expression ')' |
+	{Error} 'error' SingleArgFunction |
+	{Show} 'show' SingleArgFunction |
+	{SetCard} 'card' SingleArgFunction |
 	{SetDiff} 'diff' '(' args+=Expression ','  args+=Expression ')' |
-	{SetEmpty} 'empty' '(' args+=Expression ')' |
+	{SetEmpty} 'empty' SingleArgFunction |
 	{SetlInter} 'inter' '(' args+=Expression ',' args+=Expression ')' |
-	{SetbInter} 'Inter' '(' args+=Expression ')' |
+	{SetbInter} 'Inter' SingleArgFunction |
 	{SetMember} 'member' '(' args+=Expression ',' args+=Expression ')' |
-	{LSeq} 'seq' '(' args+=Expression ')' |
-	{BSeq} 'Seq' '(' args+=Expression ')' |
-	{Set}  'Set' '(' args+=Expression ')' |
+	{LSeq} 'seq' SingleArgFunction |
+	{BSeq} 'Seq' SingleArgFunction |
+	{Set}  'Set' SingleArgFunction |
 	{SetLUnion} 'union' '(' args+=Expression ',' args+=Expression ')' |
-	{SetBUnion} 'Union' '(' args+=Expression ')' |
-	{SequenceConcat} 'concat' '(' args+=Expression ')' |
+	{SetBUnion} 'Union' SingleArgFunction |
+	{SequenceConcat} 'concat' SingleArgFunction |
 	{SequenceElem} 'elem' '(' args+=Expression ',' args+=Expression ')' |
-	{SequenceHead} 'head' '(' args+=Expression ')' |
-	{SequenceLength} 'length' '(' args+=Expression ')' |
-	{SequenceNull} 'null' '(' args+=Expression ')' |
-	{SequenceSet} 'set' '(' args+=Expression ')' |
-	{SequenceTail} 'tail' '(' args+=Expression ')' |
-	{EmptyMap} 'emptyMap' '(' args+=Expression ')' |
-	{MapDelete} 'mapDelete' '(' args+=Expression ')' |
-	{MapFromList} 'mapFromList' '(' args+=Expression ')' |
-	{MapLookup} 'mapLookup' '(' args+=Expression ')' |
-	{MapMember} 'mapMember' '(' args+=Expression ')' |
-	{MapToList} 'mapToList' '(' args+=Expression ')' |
-	{MapUpdate} 'mapUpdated' '(' args+=Expression ')' |
-	{MapUpdateMultiple} 'mapUpdateMultiple' '(' args+=Expression ')' |
+	{SequenceHead} 'head' SingleArgFunction |
+	{SequenceLength} 'length' SingleArgFunction |
+	{SequenceNull} 'null' SingleArgFunction |
+	{SequenceSet} 'set' SingleArgFunction |
+	{SequenceTail} 'tail' SingleArgFunction |
+	{EmptyMap} 'emptyMap' SingleArgFunction |
+	{MapDelete} 'mapDelete' SingleArgFunction |
+	{MapFromList} 'mapFromList' SingleArgFunction |
+	{MapLookup} 'mapLookup' SingleArgFunction |
+	{MapMember} 'mapMember' SingleArgFunction |
+	{MapToList} 'mapToList' SingleArgFunction |
+	{MapUpdate} 'mapUpdated' SingleArgFunction |
+	{MapUpdateMultiple} 'mapUpdateMultiple' SingleArgFunction |
 	{Map} 'Map' '(' args+=Expression ',' args+=Expression ')'
+;
+
+CompressionFunction:
+	{Chase} 'chase' SingleArgFunction |
+	{ChaseNoCache} 'chase_nocache' SingleArgFunction |
+	{Deter} 'deter' SingleArgFunction |
+	{Diamond} 'diamond' SingleArgFunction |
+	{Dbisim} 'dbisim' SingleArgFunction |
+	{Explicate} 'explicate' SingleArgFunction |
+	{LazyEnumerate} 'lazyenumerate' SingleArgFunction |
+	{FailureWatchdog} 'failure_watchdog' '(' args+=Expression ',' args+=Expression ',' args+=Expression ')' |
+	{Normal} 'normal' SingleArgFunction |
+	{Prioritise} 'prioritise' '(' args+=Expression ',' args+=Expression ')' |
+	{PrioritiseNoCache} 'prioritise_nocache' '(' args+=Expression ',' args+=Expression ')' |
+	{PrioritisePo} 'prioritisepo' '(' args+=Expression ',' args+=Expression ',' args+=Expression ',' args+=Expression ')' |
+	{Sbisim} 'sbisim' SingleArgFunction |
+	{TauLoopFactor} 'tau_loop_factor' SingleArgFunction |
+	{TraceWatchdog} 'trace_watchdog' '(' args+=Expression ',' args+=Expression ',' args+=Expression ')' |
+	{TimedPriority} 'timed_priority' SingleArgFunction |
+	{Wbisim} 'wbisim' SingleArgFunction
+;
+
+enum externals:
+	CHASE = 'chase' |
+	CHASE_NO_CACHE = 'chase_no_cache' |
+	DETER = 'deter' |
+	FAILURE_WATCHDOE = 'failure_watchdog' |
+	PRIORITISE = 'prioritise' |
+	PRIORITISE_NOCACHE = 'prioritise_nocache' |
+	PRIORITISEPO = 'prioritisepo' |
+	TRACE_WATCHDOG = 'trace_watchdog' |
+	MTRANSCLOSE = 'mtransclose' |
+	RELATIONAL_IMAGE = 'relational_image' |
+	RELATIONAL_INVERSE_IMAGE = 'relational_inverse_image' |
+	TRANSPOSE = 'transpose'
+;
+
+enum transparents:
+	DIAMOND = 'diamond' |
+	DBISIM = 'dbisim' |
+	EXPLICATE = 'explicate' |
+	LAZYENUMERATE = 'lazyenumerate' |
+	NORMAL = 'normal' |
+	SBISIM = 'sbisim' |
+	TAU_LOOP_FACTOR = 'tau_loop_factor' |
+	WBISIM = 'wbisim'
+;
+
+RelationFunction:
+	{MTransClose} 'mtransclose' SingleArgFunction |
+	{RelationalImage} 'relational_image' SingleArgFunction |
+	{RelationalInverseImage} 'relational_inverse_image' SingleArgFunction |
+	{Transpose} 'transpose' SingleArgFunction
+;
+
+DotFunction:
+	{Extensions} 'extensions' SingleArgFunction |
+	{Productions} 'productions' SingleArgFunction
+;
+
+fragment SingleArgFunction:
+	'(' args+=Expression ')'
 ;
 
 RenamingPair:
@@ -516,7 +520,7 @@ StatementExpression returns Expression:
 	SetExp | RangedSetExp | ListExp | RangedListExp | EnumeratedSetExp
 ;
 
-// We have ComparisonExp2 rather than anything above, because otheriwse a string such as <2>1> would be accepted,
+// We have ComparisonExp2 rather than anything above, because otherwise a string such as <2>1> would be accepted,
 // in which case should it could be a list <2> followed by an ill-formed string, or a list whose first element is an expression
 // comparison? We eliminate the second interpretation, which is what FDR does as well.
 ListExp returns StatementExpression:
@@ -559,8 +563,7 @@ IfThenElse returns Expression:
 ;
 
 Expression:
-	LetExp | IfThenElse | //RangedListExp | 
-	ReplicatedOps | DoublePatternExp
+	LetExp | IfThenElse | ReplicatedOps | DoublePatternExp
 ;
 
 // Replicated operators
@@ -576,6 +579,9 @@ ReplicatedOps:
 	{ReplicatedSynchronisingParallel} '[+' cset=Expression '+]' '@' expr=Expression
 ;
 
+/***************************************************************************************
+ * Statements
+ ***************************************************************************************/
 Statement:
 	GeneratorStatement |
 	SetGeneratorStatement |
@@ -586,7 +592,55 @@ GeneratorStatement:
 	pattern=Pattern '<-' expr=Expression
 ;
 
-// This option is supported by FDR, but the syntax is unclear in the manual.
+// This option is supported by FDR, but the official syntax is unclear in the manual.
 SetGeneratorStatement:
 	pattern=Pattern ':' expr=Expression
+;
+
+/***************************************************************************************
+ * Type annotations
+ ***************************************************************************************/
+TypeAnnotation:
+	{TypeAnnotation} ref=[Function] (',' refs+=[Function])* '::' (
+		constraints+=Constraint '=>' |
+		'(' constraints+=Constraint (',' constraints+=Constraint) ')' '=>'
+	)? type=TypeConstructor
+;
+
+Constraint:
+	typeConstraint=TypeConstraint type=TypeVariable
+;
+
+TypeConstructor returns TypeExpression:
+	TypeExpression (
+		  {DotType.left=current} '.' right=TypeConstructor
+		| {DotableType.left=current} '=>' right=TypeConstructor
+		| {ExtendableType.left=current} '=>*' right=TypeConstructor
+		| {FunctionType.left=current} '->' right=TypeConstructor
+	)*
+;
+
+TypeExpression returns TypeExpression:
+	   TypeVariable
+	 | {SetType} '{' type=TypeConstructor '}'
+	 | {MapType} '(|' key=TypeConstructor '=>' value=TypeConstructor '|)' 
+	 | {SequenceType} '<' type=TypeConstructor '>' 
+	 | {TupleType} '(' types+=TypeConstructor (',' types+=TypeConstructor)* ')'
+	 | {IntType} 'Int' 
+	 | {BoolType} 'Bool' 
+	 | {CharType} 'Char'
+	 | {EventType} 'Event' 
+	 | {ProcType} 'Proc'
+;
+
+TypeVariable returns TypeExpression:
+	{TypeVariable} name=ID
+;
+
+enum TypeConstraint:
+	EQ = 'Eq' |
+	COMPLETE = 'Complete' |
+	ORD = 'Ord' |
+	SET = 'Set' |
+	YIELDABLE = 'Yieldable'
 ;
