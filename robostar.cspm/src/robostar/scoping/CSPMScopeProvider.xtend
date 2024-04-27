@@ -6,7 +6,6 @@ package robostar.scoping
 import org.eclipse.emf.ecore.EObject
 import org.eclipse.emf.ecore.EReference
 import robostar.cspm.PRef
-import static robostar.cspm.CspmPackage.Literals.*
 import org.eclipse.xtext.resource.EObjectDescription
 import org.eclipse.xtext.scoping.impl.SimpleScope
 import java.util.ArrayList
@@ -18,6 +17,9 @@ import robostar.cspm.NameDecl
 import java.util.Set
 import robostar.cspm.Prefix
 import robostar.cspm.StatementExpression
+import robostar.cspm.TypeConstraint
+import robostar.cspm.TypeAnnotation
+import robostar.cspm.CspmPackage
 
 /**
  * This class contains custom scoping description.
@@ -28,7 +30,7 @@ import robostar.cspm.StatementExpression
 class CSPMScopeProvider extends AbstractCSPMScopeProvider {
 
 	override getScope(EObject context, EReference reference) {
-		if (context instanceof PRef && reference == PREF__REF) {
+		if (context instanceof PRef && reference == CspmPackage.eINSTANCE.getPRef_Ref()) {
 			val result = new ArrayList
 			// We take the global scope
 			val scope = delegateGetScope(context,reference)
@@ -48,12 +50,21 @@ class CSPMScopeProvider extends AbstractCSPMScopeProvider {
 //			// Then need to scope per containing Expression
 //			//NameDecls(context)
 //			return fscope
+		} else {
+			return super.getScope(context,reference)
 		}
 	}
 	
 	def dispatch Set<NameDecl> NameDecls(PRef pr) {
 		if (pr.eContainer !== null)
 			NameDecls(pr.eContainer)
+		else
+			return new HashSet<NameDecl>
+	}
+	
+	def dispatch Set<NameDecl> NameDecls(TypeAnnotation ta) {
+		if (ta.eContainer !== null)
+			NameDecls(ta.eContainer)
 		else
 			return new HashSet<NameDecl>
 	}

@@ -17,8 +17,9 @@ class CSPMNamesAreUniqueValidationHelper extends NamesAreUniqueValidationHelper 
 	}
 	
 	override protected getAssociatedClusterType(EClass eClass) {
-		if (CspmPackage.Literals.PATTERN == eClass ||
-			CspmPackage.Literals.VARIABLE_PATTERN == eClass
+		if (CspmPackage.eINSTANCE.pattern == eClass ||
+			CspmPackage.eINSTANCE.variablePattern == eClass ||
+			CspmPackage.eINSTANCE.typeVariable == eClass
 		) return null
 		super.getAssociatedClusterType(eClass)
 	}

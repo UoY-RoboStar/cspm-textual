@@ -50,6 +50,7 @@ Definition: //A CSP Program is made of a number of definitions.
 	| 	TimedSection
 	|	Module
 	|   ModuleInstance
+	| 	TypeAnnotation
 
 ;
 
@@ -149,6 +150,51 @@ PrintStatement:
 	'print' expr=Expression
 ;
 
+TypeAnnotation:
+	{TypeAnnotation} ref=[Function] (',' refs+=[Function])* '::' (
+		constraints+=Constraint '=>' |
+		'(' constraints+=Constraint (',' constraints+=Constraint) ')' '=>'
+	)? type=TypeConstructor
+;
+
+Constraint:
+	typeConstraint=TypeConstraint type=TypeVariable
+;
+
+TypeConstructor returns TypeExpression:
+	TypeExpression (
+		  {DotType.left=current} '.' right=TypeConstructor
+		| {DotableType.left=current} '=>' right=TypeConstructor
+		| {ExtendableType.left=current} '=>*' right=TypeConstructor
+		| {FunctionType.left=current} '->' right=TypeConstructor
+	)*
+;
+
+TypeExpression returns TypeExpression:
+	   TypeVariable
+	 | {SetType} '{' type=TypeConstructor '}'
+	 | {MapType} '(|' key=TypeConstructor '=>' value=TypeConstructor '|)' 
+	 | {SequenceType} '<' type=TypeConstructor '>' 
+	 | {TupleType} '(' types+=TypeConstructor (',' types+=TypeConstructor)* ')'
+	 | {IntType} 'Int' 
+	 | {BoolType} 'Bool' 
+	 | {CharType} 'Char'
+	 | {EventType} 'Event' 
+	 | {ProcType} 'Proc'
+;
+
+TypeVariable returns TypeExpression:
+	{TypeVariable} name=ID
+;
+
+enum TypeConstraint:
+	EQ = 'Eq' |
+	COMPLETE = 'Complete' |
+	ORD = 'Ord' |
+	SET = 'Set' |
+	YIELDABLE = 'Yieldable'
+;
+
 // This can be either a function or a constant. If it's a function,
 // then can optionally use pattern matching.
 Function returns NameDecl:
@@ -156,7 +202,7 @@ Function returns NameDecl:
 ;
 
 /* Patterns */
-WildCardPattern:
+WildCardPattern returns Pattern:
 	{WildCardPattern} '_'
 ;
 
