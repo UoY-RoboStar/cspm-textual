@@ -33,7 +33,9 @@ Workflow {
 		language = StandardLanguage {
 			name = "robostar.CSPM"
 			fileExtensions = "csp"
-
+			formatter = {
+				generateStub = true
+			}
 			serializer = {
 				generateStub = false
 			}

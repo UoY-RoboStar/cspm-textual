@@ -22,9 +22,13 @@ generate cspm "http://robostar.cs.york.ac.uk/CSPM"
  ***************************************************************************************/
 CSPM hidden(WS):
 	{CSPM} 
-	(SL_COMMENT | ML_COMMENT | NEWLINE)*
-	definitions+=Definition ((SL_COMMENT | ML_COMMENT | NEWLINE)+ definitions+=Definition)* 
-	(SL_COMMENT | ML_COMMENT | NEWLINE)*
+	AllowedSpace*
+	definitions+=Definition (AllowedSpace+ definitions+=Definition)* 
+	AllowedSpace*
+;
+
+fragment AllowedSpace:
+	(NEWLINE | SL_COMMENT | ML_COMMENT)
 ;
 
 QualifiedName:
