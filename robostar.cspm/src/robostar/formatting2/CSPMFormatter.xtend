@@ -26,7 +26,7 @@ class CSPMFormatter extends AbstractFormatter2 {
 
 	def dispatch void format(RefinementAssertion refinementAssertion, extension IFormattableDocument document) {
 		// TODO: format HiddenRegions around keywords, attributes, cross references, etc. 
-		refinementAssertion.spec.format
+		refinementAssertion.proc.format
 		refinementAssertion.implementation.format
 	}
 	

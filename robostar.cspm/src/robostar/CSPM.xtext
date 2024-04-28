@@ -20,10 +20,19 @@ generate cspm "http://robostar.cs.york.ac.uk/CSPM"
 /***************************************************************************************
  * Top-level CSPM
  ***************************************************************************************/
-CSPM hidden(WS):
-	{CSPM} 
+CSPM:
+	{CSPM} Definitions?
+;
+
+fragment Definitions hidden(WS):
 	AllowedSpace*
 	definitions+=Definition (AllowedSpace+ definitions+=Definition)* 
+	AllowedSpace*
+;
+
+fragment EmptyDefinitions hidden(WS):
+	AllowedSpace*
+	(definitions+=Definition)? (AllowedSpace+ definitions+=Definition)* 
 	AllowedSpace*
 ;
 
@@ -75,22 +84,22 @@ Definition:
  * Imports and miscellaneous functions
  ***************************************************************************************/
 External:
-	'external' externals+=externals (',' externals+=externals)*
+	'external' NEWLINE* externals+=externals (NEWLINE* ',' NEWLINE* externals+=externals)*
 ;
 
 Transparent:
-	'transparent' transparents+=transparents (',' transparents+=transparents)*
+	'transparent' NEWLINE* transparents+=transparents (NEWLINE* ',' NEWLINE* transparents+=transparents)*
 ;
 
 Include:
-	'include' file=STRING
+	'include' NEWLINE* file=STRING
 ;
 
 /***************************************************************************************
  * Assertions
  ***************************************************************************************/
 Assertion:
-	'assert' (
+	'assert' NEWLINE* (
 		RefinementAssertion |
 		DeadlockAssertion |
 		DivergenceAssertion |
@@ -100,23 +109,27 @@ Assertion:
 ;
 
 RefinementAssertion:
-	negated='not'? spec=Expression '[=' model=SemanticModel implementation=Expression //check=Check
+	negated='not'? NEWLINE* proc=Expression NEWLINE* RefinementSemantic //check=Check
+;
+
+fragment RefinementSemantic hidden():
+	'[' model=SemanticModel '=' (NEWLINE | WS)* implementation=Expression
 ;
 
 DeadlockAssertion:
-	negated='not'? proc=Expression ':' '[' 'deadlock' 'free' ('[' model=SemanticModel ']')? ']'
+	negated='not'? NEWLINE* proc=Expression NEWLINE* ':[' 'deadlock' 'free' ('[' model=SemanticModel ']')? ']'
 ;
 
 DivergenceAssertion:
-	negated='not'? proc=Expression ':' '[' 'divergence' 'free' ('[' model=SemanticModel ']')? ']'
+	negated='not'? NEWLINE* proc=Expression NEWLINE* ':[' 'divergence' 'free' ('[' model=SemanticModel ']')? ']'
 ;
 
 DeterminismAssertion:
-	negated='not'? proc=Expression ':' '[' 'deterministic' ('[' model=SemanticModel ']')? ']'
+	negated='not'? NEWLINE* proc=Expression NEWLINE* ':[' 'deterministic' ('[' model=SemanticModel ']')? ']'
 ;
 
 HasTraceAssertion:
-	negated='not'? proc=Expression ':' '[' 'has' 'trace' ']:' trace=Expression
+	negated='not'? NEWLINE* proc=Expression NEWLINE* ':[' 'has' 'trace' ']:' NEWLINE* trace=Expression
 ;
 
 enum SemanticModel:
@@ -129,14 +142,14 @@ enum SemanticModel:
  * Timed section
  ***************************************************************************************/
 TimedSection:
-	{TimedSection} 'Timed' '(' expr=Expression ')' '{' (definitions+=Definition)* '}'
+	{TimedSection} 'Timed' NEWLINE* '(' NEWLINE* expr=Expression NEWLINE* ')' NEWLINE* '{' Definitions '}'
 ;
 
 /***************************************************************************************
  * Type and channel declarations
  ***************************************************************************************/
 ChannelList:
-	'channel' channels+=Channel (',' channels+=Channel)* (':' type=Expression)? 
+	'channel' NEWLINE* channels+=Channel (NEWLINE* ',' NEWLINE* channels+=Channel)* (NEWLINE* ':' NEWLINE* type=Expression)? 
 ;
 
 Channel returns NameDecl:
@@ -144,34 +157,34 @@ Channel returns NameDecl:
 ;
 
 DataType returns NameDecl:
-	{DataType} 'datatype' name=ID '=' constructors+=Constructor ('|' constructors+=Constructor)*
+	{DataType} 'datatype' NEWLINE* name=ID NEWLINE* '=' NEWLINE* constructors+=Constructor (NEWLINE* '|' NEWLINE* constructors+=Constructor)*
 ;
 
 SubType returns NameDecl:
-	{SubTyoe} 'subtype' name=ID '=' constructors+=Constructor ('|' constructors+=Constructor)*
+	{SubTyoe} 'subtype' NEWLINE* name=ID NEWLINE* '=' NEWLINE* constructors+=Constructor (NEWLINE* '|' NEWLINE* constructors+=Constructor)*
 ;
 
 NameType returns NameDecl:
-	{NameType} 'nametype' name=ID '=' type=Expression
+	{NameType} 'nametype' NEWLINE* name=ID NEWLINE* '=' NEWLINE* type=Expression
 ;
 
 Constructor returns NameDecl:
-	{Constructor} name=ID ('.' type=Expression)?
+	{Constructor} name=ID (NEWLINE* '.' NEWLINE* type=Expression)?
 ;
 
 /***************************************************************************************
  * Modules
  ***************************************************************************************/
 Module:
-	{Module} 'module' name=ID ('(' params+=Pattern (',' params+=Pattern)* ')')?
-	(definitions+=Definition)*
+	{Module} 'module' NEWLINE* name=ID ('(' NEWLINE* params+=Pattern (NEWLINE* ',' NEWLINE* params+=Pattern)* NEWLINE* ')')?
+	EmptyDefinitions
 	'exports'
-	(definitions+=Definition)*
+	EmptyDefinitions
 	'endmodule'
 ;
 
 ModuleInstance:
-	'instance' name=ID '=' ref=[Module|QualifiedName] ('(' args+=Expression (',' args+=Expression)* ')')?
+	'instance' NEWLINE* name=ID NEWLINE* '=' NEWLINE* ref=[Module|QualifiedName] ('(' NEWLINE* args+=Expression (NEWLINE* ',' NEWLINE* args+=Expression)* NEWLINE* ')')?
 ;
 
 /***************************************************************************************
@@ -192,8 +205,8 @@ PrintStatement:
 //		 f() = e
 //		 f() = f
 //		 which adopt the upper definition f() = e.
-Function returns NameDecl:
-	{Function} name=ID ('(' args+=Pattern (',' args+=Pattern)* ')')? '=' any=Expression
+Function returns NameDecl hidden(WS):
+	{Function} name=ID NEWLINE* ('(' NEWLINE* args+=Pattern (NEWLINE* ',' NEWLINE* args+=Pattern)* NEWLINE* ')')? NEWLINE* '=' NEWLINE* expr=Expression
 ;
 
 /***************************************************************************************
@@ -219,16 +232,16 @@ BasicPattern returns Pattern:
 
 // left-associative, binds tighter than Concat.
 ConcatPattern returns Pattern:
-	BasicPattern ({ConcatPattern.left=current} '^' right=BasicPattern)*
+	BasicPattern ({ConcatPattern.left=current} NEWLINE* '^' NEWLINE* right=BasicPattern)*
 ;
 
 // right-associative, binds less tighter than Concat.
 Pattern returns Pattern:
-	ConcatPattern ({DotPattern.left=current} '.' right=ConcatPattern)?
+	ConcatPattern ({DotPattern.left=current} NEWLINE* '.' NEWLINE* right=ConcatPattern)?
 ;
 
 ListPattern returns Pattern:
-	{ListPattern} '<' (patterns+=Pattern)? (',' patterns+=Pattern)* '>'
+	{ListPattern} '<' NEWLINE* (patterns+=Pattern)? (NEWLINE* ',' NEWLINE* patterns+=Pattern)* NEWLINE* '>'
 ;
 
 LiteralPattern returns Pattern:
@@ -238,15 +251,15 @@ LiteralPattern returns Pattern:
 ;
 
 ParenthesesPattern returns Pattern:
-	{ParenthesesPattern} '(' pattern=Pattern ')'
+	{ParenthesesPattern} NEWLINE* '(' NEWLINE* pattern=Pattern NEWLINE* ')'
 ;
 
 SetPattern returns Pattern:
-	{Set} '{' (pattern=Pattern)? '}'
+	{Set} '{' NEWLINE* (pattern=Pattern)? NEWLINE* '}'
 ;
 
 TuplePattern returns Pattern:
-	{TuplePattern} '(' patterns+=Pattern (',' patterns+=Pattern)* ')'
+	{TuplePattern} '(' NEWLINE* patterns+=Pattern (NEWLINE* ',' NEWLINE* patterns+=Pattern)* NEWLINE* ')'
 ;
 
 /***************************************************************************************
@@ -256,169 +269,175 @@ TuplePattern returns Pattern:
  ***************************************************************************************/ 
 ProjectExp returns Expression:
 	BasicExpression (
-		{ProjectExp.left=current} '|\\' right=BasicExpression
+		{ProjectExp.left=current} NEWLINE* '|\\' NEWLINE* right=BasicExpression
 	)*
 ;
 
 RenameExp returns Expression:
-	ProjectExp ({RenameExp.left=current} '[[' pairs+=RenamingPair (',' pairs+=RenamingPair)* ('|' stmts+=Statement (',' stmts+=Statement)*)? ']]')?
+	ProjectExp ({RenameExp.left=current} NEWLINE* '[[' NEWLINE* pairs+=RenamingPair (NEWLINE* ',' NEWLINE* pairs+=RenamingPair)* NEWLINE*
+		('|' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)*)? NEWLINE* ']]'
+	)?
 ;
 
 ConcatExp returns Expression:
 	RenameExp (
-		{ConcatExp.left=current} '^' right=RenameExp
+		{ConcatExp.left=current} NEWLINE* '^' NEWLINE* right=RenameExp
 	)*
 ;
 
 ListLengthExp returns Expression:
 	ConcatExp (
-		{ListLengthExp.left=current} '#' right=ConcatExp
+		{ListLengthExp.left=current} NEWLINE* '#' NEWLINE* right=ConcatExp
 	)*
 ;
 
 MultDivMod returns Expression:
 	ListLengthExp (
-		{MultExp.left=current} '*' right=ListLengthExp |
-		{DivExp.left=current} '/' right=ListLengthExp |
-		{ModExp.left=current} '%' right=ListLengthExp
+		{MultExp.left=current} NEWLINE* '*' NEWLINE* right=ListLengthExp |
+		{DivExp.left=current} NEWLINE* '/' NEWLINE* right=ListLengthExp |
+		{ModExp.left=current} NEWLINE* '%' NEWLINE* right=ListLengthExp
 	)*
 ;
 
 PlusMinus returns Expression:
 	MultDivMod (
-		{PlusExp.left=current} '+' right=MultDivMod |
-		{MinusExp.left=current} '-' right=MultDivMod
+		{PlusExp.left=current} NEWLINE* '+' NEWLINE* right=MultDivMod |
+		{MinusExp.left=current} NEWLINE* '-' NEWLINE* right=MultDivMod
 	)*
 ;
 
 ComparisonExp2 returns Expression:
-	PlusMinus ({LessThanOrEqualExp.left=current} '<=' right=PlusMinus |
-			{LessThanExp.left=current} '<' right=PlusMinus |
-			{GreaterThanOrEqualExp.left=current} '>=' right=PlusMinus |
-			{EqualsExp.left=current} '==' right=PlusMinus |
-			{NotEqualsExp.left=current} '!=' right=PlusMinus)?
+	PlusMinus ({LessThanOrEqualExp.left=current} NEWLINE* '<=' NEWLINE* right=PlusMinus |
+			{LessThanExp.left=current} NEWLINE* '<' NEWLINE* right=PlusMinus |
+			{GreaterThanOrEqualExp.left=current} NEWLINE* '>=' NEWLINE* right=PlusMinus |
+			{EqualsExp.left=current} NEWLINE* '==' NEWLINE* right=PlusMinus |
+			{NotEqualsExp.left=current} NEWLINE* '!=' NEWLINE* right=PlusMinus)?
 ;
 
 // The following separate rule is needed because > is also used to terminate
 // a list expression.
 ComparisonExp returns Expression:
 	ComparisonExp2 
-		(	{GreaterThanExp.left=current} '>' right=ComparisonExp2 
+		(	{GreaterThanExp.left=current} NEWLINE* '>' NEWLINE* right=ComparisonExp2 
 		)?
 ;
 
 NotExp returns Expression:
-	ComparisonExp ({NotExp.left=current} 'not' right=ComparisonExp)*
+	ComparisonExp ({NotExp.left=current} NEWLINE* 'not' NEWLINE* right=ComparisonExp)*
 ;
 
 AndExp returns Expression:
-	NotExp ({AndExp.left=current} 'and' right=NotExp)*
+	NotExp ({AndExp.left=current} NEWLINE* 'and' NEWLINE* right=NotExp)*
 ;
 
 OrExp returns Expression:
-	AndExp ({OrExp.left=current} 'or' right=AndExp)*
+	AndExp ({OrExp.left=current} NEWLINE* 'or' NEWLINE* right=AndExp)*
 ;
 
 ColonExp returns Expression:
-	OrExp ({ColonExp.left=current} ':' right=OrExp)?
+	OrExp ({ColonExp.left=current} NEWLINE* ':' NEWLINE* right=OrExp)?
 ;
 
 DotExp returns Expression:
-	ColonExp ({DotExp.left=current} '.' right=DotExp)?
+	ColonExp ({DotExp.left=current} NEWLINE* '.' NEWLINE* right=DotExp)?
 ;
 
 // ?e?x.y:{0.1} is possible
 Decoration returns Expression:
 	DotExp 
-		({InputExp.left=current} '?' right=Pattern (':' expr=Expression)? | 
-		 {OutputExp.left=current} '!' right=DotExp | 
-		 {NondeterministicInput.left=current} '$' right=Pattern (':' expr=Expression)?
+		({InputExp.left=current} NEWLINE* '?' NEWLINE* right=Pattern NEWLINE* (':' NEWLINE* expr=Expression)? | 
+		 {OutputExp.left=current} NEWLINE* '!' NEWLINE* right=DotExp | 
+		 {NondeterministicInput.left=current} NEWLINE* '$' NEWLINE* right=Pattern NEWLINE* (':' NEWLINE* expr=Expression)?
 		)*
 ;
 
 GPrefix returns Expression:
 	Decoration (
-		{Prefix.left=current} '->' right=GPrefix |
-		{GuardedExpression.left=current} '&' right=GPrefix
+		{Prefix.left=current} NEWLINE* '->' NEWLINE* right=GPrefix |
+		{GuardedExpression.left=current} NEWLINE* '&' NEWLINE* right=GPrefix
 	)?
 ;
 
 SequentialComposition returns Expression:
-	GPrefix ({SequentialComposition.left=current} ';' right=GPrefix)*
+	GPrefix ({SequentialComposition.left=current} NEWLINE* ';' NEWLINE* right=GPrefix)*
 ;
 
 SlidingChoice returns Expression:
-	SequentialComposition ({SlidingChoice.left=current} '[>' right=SequentialComposition)*
+	SequentialComposition ({SlidingChoice.left=current} NEWLINE* '[>' NEWLINE* right=SequentialComposition)*
 ;
 
 Interrupt returns Expression:
 	SlidingChoice (
-		({Interrupt.left=current} '/\\' right=SlidingChoice) |
-		({SynchronisingInterrupt.left=current} '/+' cs=Expression '+\\' right=SlidingChoice)
+		({Interrupt.left=current} NEWLINE* '/\\' NEWLINE* right=SlidingChoice) |
+		({SynchronisingInterrupt.left=current} NEWLINE* '/+' cs=Expression '+\\' NEWLINE* right=SlidingChoice)
 	)*
 ;
 
 ExternalChoice returns Expression:
 	Interrupt (
-		({ExternalChoice.left=current} '[]' right=Interrupt) | 
-		({SynchronisingExternalChoice.left=current} '[+' cs=Expression '+]' right=Interrupt)
+		({ExternalChoice.left=current} NEWLINE* '[]' NEWLINE* right=Interrupt) | 
+		({SynchronisingExternalChoice.left=current} NEWLINE* '[+' cs=Expression '+]' NEWLINE* right=Interrupt)
 	)* 
 ;
 
 InternalChoice returns Expression:
-	ExternalChoice ({InternalChoice.left=current} '|~|' right=ExternalChoice)*
+	ExternalChoice ({InternalChoice.left=current} NEWLINE* '|~|' NEWLINE* right=ExternalChoice)*
 ;
 
 EGA returns Expression:
 	InternalChoice (
-		'[|' ( 		// Ambiguous, which implies backtracking for the parser.
-			 		{Exception.left=current} cset=Expression '|>' right=InternalChoice 
-			 	| 	{GeneralisedParallel.left=current} cset=Expression  '|]' right=InternalChoice )
-		|	{AlphabetisedParallel.left=current} '[' lset=Expression '||' rset=Expression ']' right=InternalChoice 
-		|	{LinkedParallel.left=current} '[' links+=Link ('|' stmts+=Statement (',' stmts+=Statement)*)? ']' right=InternalChoice
+		'[|' NEWLINE* ( 		// Ambiguous, which implies backtracking for the parser.
+			 		{Exception.left=current} cset=Expression NEWLINE* '|>' NEWLINE* right=InternalChoice 
+			 	| 	{GeneralisedParallel.left=current} cset=Expression  NEWLINE* '|]' NEWLINE* right=InternalChoice )
+		|	{AlphabetisedParallel.left=current} NEWLINE* '[' NEWLINE* lset=Expression NEWLINE* '||' NEWLINE* rset=Expression NEWLINE* ']' NEWLINE* right=InternalChoice 
+		|	{LinkedParallel.left=current} NEWLINE* '[' NEWLINE* links+=Link NEWLINE* ('|' NEWLINE* stmts+=Statement (NEWLINE* ',' stmts+=Statement)*)? NEWLINE* ']' NEWLINE* right=InternalChoice
 	 )?
 ;
 
 Link:
-	left=Expression '<->' right=Expression
+	left=Expression NEWLINE* '<->' NEWLINE* right=Expression
 ;
 
 Interleave returns Expression:
-	EGA ({Interleave.left=current} '|||' right=EGA)*
+	EGA ({Interleave.left=current} NEWLINE* '|||' NEWLINE* right=EGA)*
 ;
 
 Hide returns Expression:
-	Interleave ({Hide.left=current} '\\' right=Interleave)*
+	Interleave ({Hide.left=current} NEWLINE* '\\' NEWLINE* right=Interleave)*
 ;
 
 DoublePatternExp returns Expression:
-	Hide ({DoublePatternExp.left=current} '@@' right=Hide)?
+	Hide ({DoublePatternExp.left=current} NEWLINE* '@@' NEWLINE* right=Hide)?
 ;
 
 BasicExpression returns Expression:
 	CoreProcess |
+	CoreSingletonProcess |
 	FunctionExp |
-	{ParExp} '(' expr=Expression ')' |
-	{TupleExp} '(' expr+=Expression ',' expr+=Expression (',' expr+=Expression)* ')' |
+	{ParExp} NEWLINE* '(' NEWLINE* expr=Expression NEWLINE* ')' |
+	{TupleExp} NEWLINE* '(' NEWLINE* expr+=Expression NEWLINE* ',' NEWLINE* expr+=Expression (NEWLINE* ',' NEWLINE* expr+=Expression)* NEWLINE* ')' |
 	PRef |
 	StatementExpression |
 	{IntegerExp} value=INT |
-	{LambdaExp} '\\' patterns+=Pattern (',' patterns+=Pattern)* '@' expr=Expression |
+	{LambdaExp} '\\' NEWLINE* patterns+=Pattern NEWLINE* (NEWLINE* ',' NEWLINE* patterns+=Pattern)* NEWLINE* '@' NEWLINE* expr=Expression |
 	{StringExp} value=STRING |
 	{CharExp} value=CHAR |
-	{MapExp} '(|' mapping+=Mapping (',' mapping+=Mapping)* '|)' |
+	{MapExp} '(|' NEWLINE* mapping+=Mapping NEWLINE* (NEWLINE* ',' NEWLINE* mapping+=Mapping)* NEWLINE* '|)' |
 	{TrueExp} ('True'|'true') |
 	{FalseExp} ('False'|'false') |
-	{UnaryNotExp} 'not' expr=Expression |
+	{UnaryNotExp} 'not' NEWLINE* expr=Expression |
 	{Events} 'Events' |
 	{Char} 'Char' |
 	{Int} 'Int' |
 	{Proc} 'Proc' 
 ;
 
-CoreProcess:
+CoreSingletonProcess:
 	{Stop} 'STOP' |
-	{Skip} 'SKIP' |
+	{Skip} 'SKIP'
+;
+
+CoreProcess:
 	{Chaos} 'CHAOS' SingleArgFunction |
 	{Run} 'RUN' SingleArgFunction |
 	{Wait} 'WAIT' SingleArgFunction
@@ -432,18 +451,18 @@ CoreFunction:
 	{Error} 'error' SingleArgFunction |
 	{Show} 'show' SingleArgFunction |
 	{SetCard} 'card' SingleArgFunction |
-	{SetDiff} 'diff' '(' args+=Expression ','  args+=Expression ')' |
+	{SetDiff} 'diff' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')' |
 	{SetEmpty} 'empty' SingleArgFunction |
-	{SetlInter} 'inter' '(' args+=Expression ',' args+=Expression ')' |
+	{SetlInter} 'inter' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')' |
 	{SetbInter} 'Inter' SingleArgFunction |
-	{SetMember} 'member' '(' args+=Expression ',' args+=Expression ')' |
+	{SetMember} 'member' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')' |
 	{LSeq} 'seq' SingleArgFunction |
 	{BSeq} 'Seq' SingleArgFunction |
 	{Set}  'Set' SingleArgFunction |
-	{SetLUnion} 'union' '(' args+=Expression ',' args+=Expression ')' |
+	{SetLUnion} 'union' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')' |
 	{SetBUnion} 'Union' SingleArgFunction |
 	{SequenceConcat} 'concat' SingleArgFunction |
-	{SequenceElem} 'elem' '(' args+=Expression ',' args+=Expression ')' |
+	{SequenceElem} 'elem' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')' |
 	{SequenceHead} 'head' SingleArgFunction |
 	{SequenceLength} 'length' SingleArgFunction |
 	{SequenceNull} 'null' SingleArgFunction |
@@ -457,7 +476,7 @@ CoreFunction:
 	{MapToList} 'mapToList' SingleArgFunction |
 	{MapUpdate} 'mapUpdated' SingleArgFunction |
 	{MapUpdateMultiple} 'mapUpdateMultiple' SingleArgFunction |
-	{Map} 'Map' '(' args+=Expression ',' args+=Expression ')'
+	{Map} 'Map' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')'
 ;
 
 CompressionFunction:
@@ -468,14 +487,14 @@ CompressionFunction:
 	{Dbisim} 'dbisim' SingleArgFunction |
 	{Explicate} 'explicate' SingleArgFunction |
 	{LazyEnumerate} 'lazyenumerate' SingleArgFunction |
-	{FailureWatchdog} 'failure_watchdog' '(' args+=Expression ',' args+=Expression ',' args+=Expression ')' |
+	{FailureWatchdog} 'failure_watchdog' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')' |
 	{Normal} 'normal' SingleArgFunction |
-	{Prioritise} 'prioritise' '(' args+=Expression ',' args+=Expression ')' |
-	{PrioritiseNoCache} 'prioritise_nocache' '(' args+=Expression ',' args+=Expression ')' |
-	{PrioritisePo} 'prioritisepo' '(' args+=Expression ',' args+=Expression ',' args+=Expression ',' args+=Expression ')' |
+	{Prioritise} 'prioritise' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')' |
+	{PrioritiseNoCache} 'prioritise_nocache' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')' |
+	{PrioritisePo} 'prioritisepo' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')' |
 	{Sbisim} 'sbisim' SingleArgFunction |
 	{TauLoopFactor} 'tau_loop_factor' SingleArgFunction |
-	{TraceWatchdog} 'trace_watchdog' '(' args+=Expression ',' args+=Expression ',' args+=Expression ')' |
+	{TraceWatchdog} 'trace_watchdog' NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ',' NEWLINE* args+=Expression NEWLINE* ')' |
 	{TimedPriority} 'timed_priority' SingleArgFunction |
 	{Wbisim} 'wbisim' SingleArgFunction
 ;
@@ -519,11 +538,11 @@ DotFunction:
 ;
 
 fragment SingleArgFunction:
-	'(' args+=Expression ')'
+	NEWLINE* '(' NEWLINE* args+=Expression NEWLINE* ')'
 ;
 
 RenamingPair:
-	from=Expression '<-' to=Expression
+	from=Expression NEWLINE* '<-' NEWLINE* to=Expression
 ;
 
 StatementExpression returns Expression:
@@ -534,59 +553,61 @@ StatementExpression returns Expression:
 // in which case should it could be a list <2> followed by an ill-formed string, or a list whose first element is an expression
 // comparison? We eliminate the second interpretation, which is what FDR does as well.
 ListExp returns StatementExpression:
-	{ListExp} '<' (exprs+=ComparisonExp2 (',' exprs+=ComparisonExp2)*)? ('|' stmts+=Statement (',' stmts+=Statement)*)? '>'
+	{ListExp} '<' NEWLINE* (exprs+=ComparisonExp2 (NEWLINE* ',' NEWLINE* exprs+=ComparisonExp2)*)? (NEWLINE* '|' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)*)? NEWLINE* '>'
 ;
 
 RangedListExp returns StatementExpression:
-	{RangedListExp} '<' left=Expression '..' right=Expression ('|' stmts+=Statement (',' stmts+=Statement)*)? '>'
+	{RangedListExp} '<' NEWLINE* left=Expression NEWLINE* '..' NEWLINE* right=Expression (NEWLINE* '|' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)*)? NEWLINE* '>'
 ;
 
 SetExp returns StatementExpression:
-	{SetExp} '{' (exprs+=Expression (',' exprs+=Expression)*)? ('|' stmts+=Statement (',' stmts+=Statement)*)? '}'
+	{SetExp} '{' NEWLINE* (exprs+=Expression (NEWLINE* ',' NEWLINE* exprs+=Expression)*)? (NEWLINE* '|' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)*)? NEWLINE* '}'
 ;
 
 RangedSetExp returns StatementExpression:
-	{RangedSetExp} '{' left=Expression '..' right=Expression ('|' stmts+=Statement (',' stmts+=Statement)*)? '}'
+	{RangedSetExp} '{' NEWLINE* left=Expression '..' NEWLINE* right=Expression (NEWLINE* '|' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)*)? NEWLINE* '}'
 ;
 
 EnumeratedSetExp returns StatementExpression:
-	{EnumeratedSetExp} '{|' (exprs+=Expression (',' exprs+=Expression)*)? ('|' stmts+=Statement (',' stmts+=Statement)*)? '|}'
+	{EnumeratedSetExp} '{|' NEWLINE* (exprs+=Expression (NEWLINE* ',' NEWLINE* exprs+=Expression)*)? (NEWLINE* '|' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)*)? NEWLINE* '|}'
 ;
 
 Mapping:
-	left=Expression '=>' right=Expression
+	left=Expression NEWLINE* '=>' NEWLINE* right=Expression
 ;
 
 PRef:
-	{PRef} ref=[NameDecl|QualifiedName] ('(' args+=Expression (',' args+=Expression)* ')')?
+	{PRef} ref=[NameDecl|QualifiedName] (NEWLINE* '(' NEWLINE* args+=Expression (NEWLINE* ',' NEWLINE* args+=Expression)* NEWLINE* ')')?
 ;
 
-LetExp returns Expression:
+LetExp returns Expression hidden(WS):
 	{LetExp} 'let'
-		(definitions+=Definition)*
-	'within'
+		AllowedSpace*
+		definitions+=Definition (AllowedSpace+ definitions+=Definition)* 
+		AllowedSpace*
+	'within' NEWLINE*
 		expr=Expression
 ;
 
 IfThenElse returns Expression:
-	'if' condition=Expression 'then' true=Expression 'else' false=Expression
+	'if' NEWLINE* condition=Expression NEWLINE* 'then' NEWLINE* true=Expression NEWLINE* 'else' NEWLINE* false=Expression
 ;
 
-Expression:
+Expression hidden(WS):
 	LetExp | IfThenElse | ReplicatedOps | DoublePatternExp
 ;
 
 // Replicated operators
 
 ReplicatedOps:
-	{ReplicatedAlphabetisedParallel} '||' stmts+=Statement (',' stmts+=Statement)* '@' '[' ']' expr=Expression |
-	{ReplicatedExternalChoice} '[]' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
-	{ReplicatedGeneralisedPrallel} '[|' '|]' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
-	{ReplicatedInterleave} '|||' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
-	{ReplicatedInternalChoice} '|~|' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
-	{ReplicatedLinkedParallel} '[' links+=Link (',' links+=Link)* ('|' lstmts+=Statement (',' lstmts+=Statement)*)? ']' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
-	{ReplicatedSequentialComposition} ';' stmts+=Statement (',' stmts+=Statement)* '@' expr=Expression |
-	{ReplicatedSynchronisingParallel} '[+' cset=Expression '+]' '@' expr=Expression
+	{ReplicatedAlphabetisedParallel} '||' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)* NEWLINE* '@' NEWLINE* '[' NEWLINE* cset=Expression NEWLINE* ']' expr=Expression |
+	{ReplicatedExternalChoice} '[]' NEWLINE* stmts+=Statement (NEWLINE* ','NEWLINE*  stmts+=Statement)* NEWLINE* '@' NEWLINE* expr=Expression |
+	{ReplicatedGeneralisedPrallel} '[|' NEWLINE* cset=Expression NEWLINE* '|]' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)* NEWLINE* '@' NEWLINE* expr=Expression |
+	{ReplicatedInterleave} '|||' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)* NEWLINE* '@' NEWLINE* expr=Expression |
+	{ReplicatedInternalChoice} '|~|' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)* NEWLINE* '@' NEWLINE* expr=Expression |
+	{ReplicatedLinkedParallel} '[' NEWLINE* links+=Link (NEWLINE* ',' NEWLINE* links+=Link)* (NEWLINE* '|' NEWLINE* lstmts+=Statement (NEWLINE* ',' NEWLINE* lstmts+=Statement)*)? NEWLINE* ']' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)* NEWLINE* '@' NEWLINE* expr=Expression |
+	{ReplicatedSequentialComposition} ';' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)* NEWLINE* '@' NEWLINE* expr=Expression |
+	{ReplicatedSynchronisingParallel} '[+' NEWLINE* cset=Expression NEWLINE* '+]' NEWLINE* '@' NEWLINE* expr=Expression
 ;
 
 /***************************************************************************************
@@ -599,22 +620,22 @@ Statement:
 ;
 
 GeneratorStatement:
-	pattern=Pattern '<-' expr=Expression
+	pattern=Pattern NEWLINE* '<-' NEWLINE* expr=Expression
 ;
 
 // This option is supported by FDR, but the official syntax is unclear in the manual.
 SetGeneratorStatement:
-	pattern=Pattern ':' expr=Expression
+	pattern=Pattern NEWLINE* ':' NEWLINE* expr=Expression
 ;
 
 /***************************************************************************************
  * Type annotations
  ***************************************************************************************/
 TypeAnnotation:
-	{TypeAnnotation} ref=[Function] (',' refs+=[Function])* '::' (
-		constraints+=Constraint '=>' |
-		'(' constraints+=Constraint (',' constraints+=Constraint) ')' '=>'
-	)? type=TypeConstructor
+	{TypeAnnotation} ref=[Function] (NEWLINE* ',' NEWLINE* refs+=[Function])* NEWLINE* '::' NEWLINE* (
+		constraints+=Constraint NEWLINE* '=>' |
+		'(' NEWLINE* constraints+=Constraint (NEWLINE* ',' NEWLINE* constraints+=Constraint) NEWLINE* ')' NEWLINE* '=>'
+	)? NEWLINE* type=TypeConstructor
 ;
 
 Constraint:
@@ -623,19 +644,19 @@ Constraint:
 
 TypeConstructor returns TypeExpression:
 	TypeExpression (
-		  {DotType.left=current} '.' right=TypeConstructor
-		| {DotableType.left=current} '=>' right=TypeConstructor
-		| {ExtendableType.left=current} '=>*' right=TypeConstructor
-		| {FunctionType.left=current} '->' right=TypeConstructor
+		  {DotType.left=current} NEWLINE* '.' NEWLINE* right=TypeConstructor
+		| {DotableType.left=current} NEWLINE* '=>' NEWLINE* right=TypeConstructor
+		| {ExtendableType.left=current} NEWLINE* '=>*' NEWLINE* right=TypeConstructor
+		| {FunctionType.left=current} NEWLINE* '->' NEWLINE* right=TypeConstructor
 	)*
 ;
 
 TypeExpression returns TypeExpression:
 	   TypeVariable
-	 | {SetType} '{' type=TypeConstructor '}'
-	 | {MapType} '(|' key=TypeConstructor '=>' value=TypeConstructor '|)' 
-	 | {SequenceType} '<' type=TypeConstructor '>' 
-	 | {TupleType} '(' types+=TypeConstructor (',' types+=TypeConstructor)* ')'
+	 | {SetType} '{' NEWLINE* type=TypeConstructor NEWLINE* '}'
+	 | {MapType} '(|' NEWLINE* key=TypeConstructor NEWLINE* '=>' NEWLINE* value=TypeConstructor NEWLINE* '|)' 
+	 | {SequenceType} '<' NEWLINE* type=TypeConstructor NEWLINE* '>' 
+	 | {TupleType} '(' NEWLINE* types+=TypeConstructor (NEWLINE* ',' NEWLINE* types+=TypeConstructor)* NEWLINE* ')'
 	 | {IntType} 'Int' 
 	 | {BoolType} 'Bool' 
 	 | {CharType} 'Char'
