@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Automatic-Module-Name: robostar.cspm
 Bundle-ManifestVersion: 2
 Bundle-Name: robostar.cspm
-Bundle-Vendor: My Company
+Bundle-Vendor: RoboStar
 Bundle-Version: 1.0.0.qualifier
 Bundle-SymbolicName: robostar.cspm; singleton:=true
 Bundle-ActivationPolicy: lazy
@@ -26,5 +26,6 @@ Export-Package: robostar.scoping,
  robostar.cspm.impl,
  robostar.validation,
  robostar.generator,
- robostar.serializer
+ robostar.serializer,
+ robostar.formatting2
 Import-Package: org.apache.log4j
