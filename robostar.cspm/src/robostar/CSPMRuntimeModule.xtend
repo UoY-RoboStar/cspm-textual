@@ -6,6 +6,8 @@ package robostar
 import org.eclipse.xtext.naming.IQualifiedNameConverter
 import org.eclipse.xtext.validation.INamesAreUniqueValidationHelper
 import robostar.validation.CSPMNamesAreUniqueValidationHelper
+import org.eclipse.xtext.scoping.IGlobalScopeProvider
+import org.eclipse.xtext.scoping.impl.ImportUriGlobalScopeProvider
 
 /**
  * Use this class to register components to be used at runtime / without the Equinox extension registry.
@@ -24,4 +26,7 @@ class CSPMRuntimeModule extends AbstractCSPMRuntimeModule {
 		return CSPMNamesAreUniqueValidationHelper
 	}
 	
+	override Class<? extends IGlobalScopeProvider> bindIGlobalScopeProvider() {
+		return ImportUriGlobalScopeProvider
+	}
 }

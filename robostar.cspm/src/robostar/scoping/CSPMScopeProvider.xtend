@@ -20,13 +20,6 @@ import robostar.cspm.StatementExpression
 import robostar.cspm.TypeConstraint
 import robostar.cspm.TypeAnnotation
 import robostar.cspm.CspmPackage
-import org.eclipse.xtext.resource.XtextResourceSet
-import com.google.inject.Inject
-import org.eclipse.xtext.resource.impl.ResourceDescriptionsProvider
-import robostar.cspm.CSPM
-import org.eclipse.xtext.resource.XtextResource
-import com.google.inject.Provider
-import org.eclipse.xtext.resource.IContainer
 
 /**
  * This class contains custom scoping description.
@@ -35,34 +28,12 @@ import org.eclipse.xtext.resource.IContainer
  * on how and when to use it.
  */
 class CSPMScopeProvider extends AbstractCSPMScopeProvider {
-	
-	@Inject Provider<XtextResourceSet> resourceSetProvider
-	@Inject ResourceDescriptionsProvider resourceDescriptionsProvider;
-	@Inject IContainer.Manager manager
 
 	override getScope(EObject context, EReference reference) {
 		if (context instanceof PRef && reference == CspmPackage.eINSTANCE.getPRef_Ref()) {
 			val result = new ArrayList
 			// We take the global scope
 			val scope = delegateGetScope(context,reference)
-			
-			val rss = resourceSetProvider.get()
-			var index = resourceDescriptionsProvider.getResourceDescriptions(rss)
-			var descr = index.getResourceDescription(context.eResource.URI)
-			var rst = index.exportedObjects
-			
-			//val descr = index.getResourceDescription(resource.URI)
-		    for (visibleContainer : manager.getVisibleContainers(descr, index)) {
-		        for (visibleResourceDesc : visibleContainer.resourceDescriptions) {
-		            println(visibleResourceDesc.URI)
-		        }
-		    }
-			// Top-level scope is potentially *any* .csp file that includes this one,
-			// so lookup for one?
-			
-			
-			var res = context.eResource()
-			var rs = res.resourceSet
 			
 			val oscope = Scopes.scopeFor(NameDecls(context), scope)
 			return oscope

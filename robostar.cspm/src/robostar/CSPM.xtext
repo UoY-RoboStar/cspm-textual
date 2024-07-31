@@ -1,5 +1,5 @@
 /********************************************************************************
- * Copyright (c) 2014 University of York and others
+ * Copyright (c) 2024 University of York and others
  *
  * This program and the accompanying materials are made available under the
  * terms of the Eclipse Public License 2.0 which is available at
@@ -41,7 +41,7 @@ fragment AllowedSpace:
 ;
 
 QualifiedName:
-	ID ('::' ID)*
+	VALIDID ('::' VALIDID)*
 ;
 
 /***************************************************************************************
@@ -60,6 +60,9 @@ terminal ID  		: ('a'..'z'|'A'..'Z') ('a'..'z'|'A'..'Z'|'_'|'0'..'9')* ("'")*;
 @Override 
 terminal STRING:	'"' ( '\\' . /* 'b'|'t'|'n'|'f'|'r'|'u'|'"'|"'"|'\\' */ | !('\\'|'"') )* '"';
 
+VALIDID: ID | KEYWORD;
+// TODO: Add all the other keywords.
+KEYWORD: 'F'|'T'|'FD'|'has'|'free'|'deadlock'|'deterministic'|'divergence'; 
 /***************************************************************************************
  * Definitions
  ***************************************************************************************/
@@ -92,7 +95,7 @@ Transparent:
 ;
 
 Include:
-	'include' NEWLINE* file=STRING
+	'include' NEWLINE* importURI=STRING
 ;
 
 /***************************************************************************************
@@ -153,30 +156,30 @@ ChannelList:
 ;
 
 Channel returns NameDecl:
-	{Channel} name=ID
+	{Channel} name=VALIDID
 ;
 
 DataType returns NameDecl:
-	{DataType} 'datatype' NEWLINE* name=ID NEWLINE* '=' NEWLINE* constructors+=Constructor (NEWLINE* '|' NEWLINE* constructors+=Constructor)*
+	{DataType} 'datatype' NEWLINE* name=VALIDID NEWLINE* '=' NEWLINE* constructors+=Constructor (NEWLINE* '|' NEWLINE* constructors+=Constructor)*
 ;
 
 SubType returns NameDecl:
-	{SubTyoe} 'subtype' NEWLINE* name=ID NEWLINE* '=' NEWLINE* constructors+=Constructor (NEWLINE* '|' NEWLINE* constructors+=Constructor)*
+	{SubTyoe} 'subtype' NEWLINE* name=VALIDID NEWLINE* '=' NEWLINE* constructors+=Constructor (NEWLINE* '|' NEWLINE* constructors+=Constructor)*
 ;
 
 NameType returns NameDecl:
-	{NameType} 'nametype' NEWLINE* name=ID NEWLINE* '=' NEWLINE* type=Expression
+	{NameType} 'nametype' NEWLINE* name=VALIDID NEWLINE* '=' NEWLINE* type=Expression
 ;
 
 Constructor returns NameDecl:
-	{Constructor} name=ID (NEWLINE* '.' NEWLINE* type=Expression)?
+	{Constructor} name=VALIDID (NEWLINE* '.' NEWLINE* type=Expression)?
 ;
 
 /***************************************************************************************
  * Modules
  ***************************************************************************************/
 Module:
-	{Module} 'module' NEWLINE* name=ID ('(' NEWLINE* params+=Pattern (NEWLINE* ',' NEWLINE* params+=Pattern)* NEWLINE* ')')?
+	{Module} 'module' NEWLINE* name=VALIDID ('(' NEWLINE* params+=Pattern (NEWLINE* ',' NEWLINE* params+=Pattern)* NEWLINE* ')')?
 	EmptyDefinitions
 	'exports'
 	EmptyDefinitions
@@ -184,7 +187,7 @@ Module:
 ;
 
 ModuleInstance:
-	'instance' NEWLINE* name=ID NEWLINE* '=' NEWLINE* ref=[Module|QualifiedName] ('(' NEWLINE* args+=Expression (NEWLINE* ',' NEWLINE* args+=Expression)* NEWLINE* ')')?
+	'instance' NEWLINE* name=VALIDID NEWLINE* '=' NEWLINE* ref=[Module|QualifiedName] ('(' NEWLINE* args+=Expression (NEWLINE* ',' NEWLINE* args+=Expression)* NEWLINE* ')')?
 ;
 
 /***************************************************************************************
@@ -206,7 +209,7 @@ PrintStatement:
 //		 f() = f
 //		 which adopt the upper definition f() = e.
 Function returns NameDecl hidden(WS):
-	{Function} name=ID NEWLINE* ('(' NEWLINE* args+=Pattern (NEWLINE* ',' NEWLINE* args+=Pattern)* NEWLINE* ')')? NEWLINE* '=' NEWLINE* expr=Expression
+	{Function} name=VALIDID NEWLINE* ('(' NEWLINE* args+=Pattern (NEWLINE* ',' NEWLINE* args+=Pattern)* NEWLINE* ')')? NEWLINE* '=' NEWLINE* expr=Expression
 ;
 
 /***************************************************************************************
@@ -217,7 +220,7 @@ WildCardPattern returns Pattern:
 ;
 
 VariablePattern returns NameDecl:
-	{VariablePattern} name=ID
+	{VariablePattern} name=VALIDID
 ;
 
 BasicPattern returns Pattern:
@@ -273,8 +276,11 @@ ProjectExp returns Expression:
 	)*
 ;
 
+// ParserRule
 RenameExp returns Expression:
-	ProjectExp ({RenameExp.left=current} NEWLINE* '[[' NEWLINE* pairs+=RenamingPair (NEWLINE* ',' NEWLINE* pairs+=RenamingPair)* NEWLINE*
+	// RuleCall, followed by a Group?:
+	ProjectExp 
+		({RenameExp.left=current} NEWLINE* '[[' NEWLINE* pairs+=RenamingPair (NEWLINE* ',' NEWLINE* pairs+=RenamingPair)* NEWLINE*
 		('|' NEWLINE* stmts+=Statement (NEWLINE* ',' NEWLINE* stmts+=Statement)*)? NEWLINE* ']]'
 	)?
 ;
@@ -597,6 +603,13 @@ Expression hidden(WS):
 	LetExp | IfThenElse | ReplicatedOps | DoublePatternExp
 ;
 
+BinaryExpression returns Expression:
+	GPrefix | Mapping | Hide | Interleave | EGA | ExternalChoice | InternalChoice | Interrupt |
+	SlidingChoice | SequentialComposition | GPrefix | Decoration | DotExp | ColonExp |
+	AndExp | OrExp | ComparisonExp | ComparisonExp2 | PlusMinus | MultDivMod | ListLengthExp |
+	ConcatExp | RenameExp | ProjectExp
+;
+
 // Replicated operators
 
 ReplicatedOps:
@@ -665,7 +678,7 @@ TypeExpression returns TypeExpression:
 ;
 
 TypeVariable returns TypeExpression:
-	{TypeVariable} name=ID
+	{TypeVariable} name=VALIDID
 ;
 
 enum TypeConstraint:
