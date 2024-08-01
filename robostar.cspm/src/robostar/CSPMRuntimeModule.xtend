@@ -9,6 +9,14 @@ import robostar.validation.CSPMNamesAreUniqueValidationHelper
 import org.eclipse.xtext.scoping.IGlobalScopeProvider
 import org.eclipse.xtext.scoping.impl.ImportUriGlobalScopeProvider
 import org.eclipse.xtext.resource.IDefaultResourceDescriptionStrategy
+import com.google.inject.Binder
+import com.google.inject.TypeLiteral
+import com.google.common.collect.ImmutableList
+import org.eclipse.xtext.resource.impl.IsAffectedExtension
+import org.eclipse.xtext.resource.impl.IsAffectedExtension.AllIsAffectedExtensions
+import com.google.inject.Key
+import com.google.inject.name.Names
+import org.eclipse.xtext.validation.DefaultUniqueNameContext
 
 /**
  * Use this class to register components to be used at runtime / without the Equinox extension registry.
