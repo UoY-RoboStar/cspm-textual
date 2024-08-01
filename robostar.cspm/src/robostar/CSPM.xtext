@@ -120,11 +120,11 @@ fragment RefinementSemantic hidden():
 ;
 
 DeadlockAssertion:
-	negated='not'? NEWLINE* proc=Expression NEWLINE* ':[' 'deadlock' 'free' ('[' model=SemanticModel ']')? ']'
+	negated='not'? NEWLINE* proc=Expression NEWLINE* ':[' 'deadlock' ('-')? 'free' ('[' model=SemanticModel ']')? ']'
 ;
 
 DivergenceAssertion:
-	negated='not'? NEWLINE* proc=Expression NEWLINE* ':[' 'divergence' 'free' ('[' model=SemanticModel ']')? ']'
+	negated='not'? NEWLINE* proc=Expression NEWLINE* ':[' 'divergence' ('-')? 'free' ('[' model=SemanticModel ']')? ']'
 ;
 
 DeterminismAssertion:
@@ -392,7 +392,7 @@ InternalChoice returns Expression:
 
 EGA returns Expression:
 	InternalChoice (
-		'[|' NEWLINE* ( 		// Ambiguous, which implies backtracking for the parser.
+		NEWLINE* '[|' ( 		// Ambiguous, which implies backtracking for the parser.
 			 		{Exception.left=current} cset=Expression NEWLINE* '|>' NEWLINE* right=InternalChoice 
 			 	| 	{GeneralisedParallel.left=current} cset=Expression  NEWLINE* '|]' NEWLINE* right=InternalChoice )
 		|	{AlphabetisedParallel.left=current} NEWLINE* '[' NEWLINE* lset=Expression NEWLINE* '||' NEWLINE* rset=Expression NEWLINE* ']' NEWLINE* right=InternalChoice 
@@ -417,10 +417,11 @@ DoublePatternExp returns Expression:
 ;
 
 BasicExpression returns Expression:
+	IfThenElse |
 	CoreProcess |
 	CoreSingletonProcess |
 	FunctionExp |
-	{ParExp} NEWLINE* '(' NEWLINE* expr=Expression NEWLINE* ')' |
+	{ParExp} NEWLINE* '(' AllowedSpace* expr=Expression AllowedSpace* ')' |
 	{TupleExp} NEWLINE* '(' NEWLINE* expr+=Expression NEWLINE* ',' NEWLINE* expr+=Expression (NEWLINE* ',' NEWLINE* expr+=Expression)* NEWLINE* ')' |
 	PRef |
 	StatementExpression |
@@ -435,7 +436,8 @@ BasicExpression returns Expression:
 	{Events} 'Events' |
 	{Char} 'Char' |
 	{Int} 'Int' |
-	{Proc} 'Proc' 
+	{Proc} 'Proc' |
+	{Bool} 'Bool'
 ;
 
 CoreSingletonProcess:
@@ -600,7 +602,7 @@ IfThenElse returns Expression:
 ;
 
 Expression hidden(WS):
-	LetExp | IfThenElse | ReplicatedOps | DoublePatternExp
+	LetExp | ReplicatedOps | DoublePatternExp
 ;
 
 BinaryExpression returns Expression:
